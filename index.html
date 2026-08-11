@@ -297,7 +297,7 @@
       <div class="hint">当てはまるものをひとつタップ</div>
       <div class="btn-grid" id="heardGrid"></div>
       <div class="nav-row">
-        <button class="nav-btn back" onclick="goScreen('group')">戻る</button>
+        <button class="nav-btn back" onclick="backFromHeard()">戻る</button>
         <button class="nav-btn next" id="heardNext" disabled onclick="goScreen('pay')">次へ</button>
       </div>
     </section>
@@ -1882,7 +1882,7 @@ const ADDRESS_MAP = {
 };
 
 /* ===================== 状態 ===================== */
-let state = { branch:null, group:null, heard:null, pay:null, device:null };
+let state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
 let registrations = [];
 let db = null;
 let usingFirebase = false;
@@ -1917,7 +1917,7 @@ function goScreen(name){
   if(name==="settings") { loadFbFormFromStorage(); }
 }
 function resetFlowUI(){
-  state = { branch:null, group:null, heard:null, pay:null, device:null };
+  state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
   // 支部・班・きっかけ・支払い方法・端末、すべての選択状態をクリア
   document.querySelectorAll(".branch-item.selected, .opt-btn.selected").forEach(el=>el.classList.remove("selected"));
   ["branchNext","groupNext","heardNext","payNext","deviceNext"].forEach(id=>{
@@ -1944,6 +1944,7 @@ function renderBranchList(){
       div.classList.add("selected");
       state.branch = b.id;
       state.group = null;
+      state.viaAddress = false;
       document.getElementById("branchNext").disabled = false;
     };
     wrap.appendChild(div);
@@ -1960,13 +1961,13 @@ function renderGroupList(){
   document.getElementById("groupHint").textContent = (branch?.label||"") + " の班をタップ";
   const wrap = document.getElementById("groupList");
   wrap.innerHTML = "";
-  document.getElementById("groupNext").disabled = true;
+  document.getElementById("groupNext").disabled = state.group ? false : true;
   const groupIds = BRANCH_GROUPS[state.branch] || [];
   groupIds.forEach(gid=>{
     const g = GROUPS.find(x=>x.id===gid);
     if(!g) return;
     const div = document.createElement("div");
-    div.className = "branch-item";
+    div.className = "branch-item" + (state.group===g.id ? " selected" : "");
     div.innerHTML = `<span>${escapeHtml(g.label)}</span><span class="arrow">✓</span>`;
     div.onclick = ()=>{
       document.querySelectorAll("#groupList .branch-item").forEach(x=>x.classList.remove("selected"));
@@ -2086,8 +2087,18 @@ function renderAddrStep(){
 function applyAddrResult(result){
   state.branch = result.branch;
   state.group = result.group;
+  state.viaAddress = true;
   closeAddrModal();
   goScreen("heard");
+}
+function backFromHeard(){
+  if(state.viaAddress){
+    // 住所から選んだ場合は、支部・班の選び方からやり直す
+    goScreen("startchoice");
+  } else {
+    renderGroupList();
+    goScreen("group");
+  }
 }
 
 /* ===================== STEP3 何を見てきたか ===================== */
@@ -2145,8 +2156,6 @@ function renderDeviceGrid(){
 }
 
 /* ===================== 確認画面 ===================== */
-function goScreenConfirmPrep(){}
-document.addEventListener("DOMContentLoaded", ()=>{});
 function renderConfirm(){
   const heardLabel = HEARD_OPTIONS.find(h=>h.key===state.heard)?.label || "";
   const payLabel = PAY_OPTIONS.find(p=>p.key===state.pay)?.label || "";
@@ -2167,6 +2176,12 @@ goScreen = function(name){
 
 /* ===================== 登録処理 ===================== */
 function submitRegistration(){
+  // 安全チェック：すべての項目が選択されているか確認（万一未選択のまま進んだ場合の保険）
+  if(!state.branch || !state.group || !state.heard || !state.pay || !state.device){
+    alert("未入力の項目があります。最初からやり直してください。");
+    finishAndReset();
+    return;
+  }
   const rec = {
     branch: state.branch,
     group: state.group,
@@ -2271,12 +2286,16 @@ function saveFirebaseConfig(){
     return;
   }
   saveLocal("kaihi_fb_config", cfg);
+  localStorage.removeItem("kaihi_fb_disabled");
   tryConnectFirebase(()=>{
     alert("Firebaseに接続しました。");
   });
 }
 function clearFirebaseConfig(){
   localStorage.removeItem("kaihi_fb_config");
+  saveLocal("kaihi_fb_disabled", true); // 既定のFirebase設定にも自動で戻らないようにする
+  if(window._fbUnsub){ window._fbUnsub(); window._fbUnsub = null; }
+  if(window._fbApp){ window._fbApp.delete().catch(()=>{}); window._fbApp = null; }
   usingFirebase = false;
   db = null;
   updateConnStatus();
@@ -2287,6 +2306,12 @@ function clearFirebaseConfig(){
 function tryConnectFirebase(onSuccess){
   let cfg = loadLocal("kaihi_fb_config", null);
   if(!cfg || !cfg.apiKey || !cfg.projectId){
+    if(loadLocal("kaihi_fb_disabled", false)){
+      // 利用者が明示的に連携解除している場合は既定設定にも自動で繋がない
+      usingFirebase = false;
+      updateConnStatus();
+      return;
+    }
     cfg = DEFAULT_FIREBASE_CONFIG;
   }
   if(!cfg || !cfg.apiKey || !cfg.projectId){
@@ -2294,28 +2319,36 @@ function tryConnectFirebase(onSuccess){
     updateConnStatus();
     return;
   }
-  try{
-    if(!window._fbApp){
+  const connect = ()=>{
+    try{
       window._fbApp = firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      usingFirebase = true;
+      updateConnStatus();
+      // registrations のリアルタイム同期
+      if(window._fbUnsub) { window._fbUnsub(); window._fbUnsub = null; }
+      window._fbUnsub = db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
+        .onSnapshot(snap=>{
+          registrations = snap.docs.map(d=>d.data());
+          saveLocal("kaihi_regs", registrations);
+          renderBoard();
+        }, err=>{
+          console.error(err);
+        });
+      if(onSuccess) onSuccess();
+    }catch(e){
+      console.error(e);
+      usingFirebase = false;
+      updateConnStatus();
+      alert("Firebase接続に失敗しました。設定値をご確認ください。");
     }
-    db = firebase.firestore();
-    usingFirebase = true;
-    updateConnStatus();
-    // registrations のリアルタイム同期
-    db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
-      .onSnapshot(snap=>{
-        registrations = snap.docs.map(d=>d.data());
-        saveLocal("kaihi_regs", registrations);
-        renderBoard();
-      }, err=>{
-        console.error(err);
-      });
-    if(onSuccess) onSuccess();
-  }catch(e){
-    console.error(e);
-    usingFirebase = false;
-    updateConnStatus();
-    alert("Firebase接続に失敗しました。設定値をご確認ください。");
+  };
+  // 設定が変更された場合は、いったん既存の接続を破棄してから再接続する
+  if(window._fbApp){
+    if(window._fbUnsub){ window._fbUnsub(); window._fbUnsub = null; }
+    window._fbApp.delete().then(()=>{ window._fbApp = null; connect(); }).catch(()=>{ window._fbApp = null; connect(); });
+  } else {
+    connect();
   }
 }
 function updateConnStatus(){
