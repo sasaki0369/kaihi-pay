@@ -343,7 +343,7 @@
       <div class="result-lane" id="resultLane"></div>
       <div class="result-wait" id="resultWait"></div>
       <div class="nav-row">
-        <button class="nav-btn next" onclick="goScreen('home')">✅ 確認して終了（次の方へ）</button>
+        <button class="nav-btn next" onclick="finishAndReset()">✅ 確認して終了（次の方へ）</button>
       </div>
     </section>
 
@@ -1916,10 +1916,18 @@ function goScreen(name){
   if(name==="board") renderBoard();
   if(name==="settings") { loadFbFormFromStorage(); }
 }
-function startFlow(){
+function resetFlowUI(){
   state = { branch:null, group:null, heard:null, pay:null, device:null };
-  document.querySelectorAll("#branchList .branch-item").forEach(b=>b.classList.remove("selected"));
-  document.getElementById("branchNext").disabled = true;
+  // 支部・班・きっかけ・支払い方法・端末、すべての選択状態をクリア
+  document.querySelectorAll(".branch-item.selected, .opt-btn.selected").forEach(el=>el.classList.remove("selected"));
+  ["branchNext","groupNext","heardNext","payNext","deviceNext"].forEach(id=>{
+    const btn = document.getElementById(id);
+    if(btn) btn.disabled = true;
+  });
+  document.getElementById("groupList").innerHTML = "";
+}
+function startFlow(){
+  resetFlowUI();
   goScreen("startchoice");
 }
 
@@ -2173,6 +2181,8 @@ function submitRegistration(){
   showResult(rec, waitCountBefore);
   // 保存はバックグラウンドで実行（失敗しても画面遷移は完了済み）
   addRegistration(rec).catch(err=>{ console.error(err); });
+  // 選択状態を即リフレッシュ（次の人の登録で前回の選択が残らないように）
+  resetFlowUI();
 }
 
 function showResult(rec, waitCount){
@@ -2185,6 +2195,11 @@ function showResult(rec, waitCount){
   document.getElementById("resultWait").textContent =
     `現在 ${lane.name} には ${waitCount} 名が登録されています。スタッフの案内に従ってお並びください。`;
   goScreen("done");
+}
+
+function finishAndReset(){
+  resetFlowUI();
+  goScreen("home");
 }
 
 /* ===================== 受付状況ボード ===================== */
