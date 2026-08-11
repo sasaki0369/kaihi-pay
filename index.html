@@ -360,6 +360,9 @@
       </div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
+        <button class="nav-btn next" onclick="exportCSV()">📄 CSVダウンロード</button>
+      </div>
+      <div class="nav-row">
         <button class="nav-btn next" style="background:var(--red);" onclick="confirmReset()">受付データを全てリセット</button>
       </div>
     </section>
@@ -2248,6 +2251,51 @@ function confirmReset(){
   if(confirm("受付データをすべて削除します。よろしいですか？")){
     resetRegistrations();
   }
+}
+
+/* ===================== CSV出力 ===================== */
+function csvEscape(v){
+  const s = String(v ?? "");
+  if(/[",\n]/.test(s)){
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+function formatDateTime(ts){
+  const d = new Date(ts);
+  const pad = (n)=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function exportCSV(){
+  if(!registrations.length){
+    alert("出力できる受付データがありません。");
+    return;
+  }
+  const header = ["登録日時","支部","班","何を見て","支払い方法","登録端末","列"];
+  const rows = registrations.slice().sort((a,b)=>a.ts-b.ts).map(r=>{
+    const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
+    const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
+    const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || r.heard || "";
+    const payLabel = PAY_OPTIONS.find(p=>p.key===r.pay)?.label || r.pay || "";
+    const devLabel = DEVICE_OPTIONS.find(d=>d.key===r.device)?.label || r.device || "";
+    const lane = laneLabel(r.pay, r.device);
+    return [formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, lane.name];
+  });
+  const lines = [header, ...rows].map(row => row.map(csvEscape).join(","));
+  // ExcelでもJavaScriptでも文字化けしないようUTF-8 BOM付きで出力
+  const csvContent = "\uFEFF" + lines.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const pad = (n)=>String(n).padStart(2,"0");
+  const fname = `会費ペイ受付_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 
 /* ===================== Firebase 連携 ===================== */
