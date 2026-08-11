@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="会費ペイ受付">
+<meta name="theme-color" content="#FF8A3D">
 <title>会費ペイ登録相談会受付</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💳</text></svg>">
 <style>
   :root{
@@ -336,7 +343,7 @@
       <div class="result-lane" id="resultLane"></div>
       <div class="result-wait" id="resultWait"></div>
       <div class="nav-row">
-        <button class="nav-btn next" onclick="goScreen('home')">👉 トップにもどる</button>
+        <button class="nav-btn next" onclick="goScreen('home')">✅ 確認して終了（次の方へ）</button>
       </div>
     </section>
 
@@ -400,7 +407,7 @@ const HEARD_OPTIONS = [
   {key:"chijin", label:"知人から", emoji:"🗣️"},
 ];
 const PAY_OPTIONS = [
-  {key:"bank", label:"銀行口座振替え", emoji:"🏦"},
+  {key:"bank", label:"銀行口座引き落し", emoji:"🏦"},
   {key:"card", label:"クレジットカード", emoji:"💳"},
 ];
 const DEVICE_OPTIONS = [
@@ -2161,19 +2168,20 @@ function submitRegistration(){
     laneKey: state.pay + "_" + state.device,
     ts: Date.now(),
   };
-  addRegistration(rec).then(()=>{
-    showResult(rec);
-  });
+  // 通信状況に関わらず、まず結果画面へすぐに切り替える（登録時点の待ち人数で計算）
+  const waitCountBefore = registrations.filter(r=>r.laneKey===rec.laneKey).length;
+  showResult(rec, waitCountBefore);
+  // 保存はバックグラウンドで実行（失敗しても画面遷移は完了済み）
+  addRegistration(rec).catch(err=>{ console.error(err); });
 }
 
-function showResult(rec){
+function showResult(rec, waitCount){
   const lane = laneLabel(rec.pay, rec.device);
   document.getElementById("resultLane").innerHTML = `
     <div class="label">ご案内する列は</div>
     <div class="lane">${lane.name}</div>
     <div class="desc">${escapeHtml(lane.desc)}</div>
   `;
-  const waitCount = registrations.filter(r=>r.laneKey===rec.laneKey).length;
   document.getElementById("resultWait").textContent =
     `現在 ${lane.name} には ${waitCount} 名が登録されています。スタッフの案内に従ってお並びください。`;
   goScreen("done");
@@ -2351,6 +2359,15 @@ function escapeHtml(s){
 }
 
 init();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
+  });
+}
 </script>
 </body>
 </html>
