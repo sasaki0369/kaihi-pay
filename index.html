@@ -50,8 +50,8 @@
     position:absolute; top:16px; right:14px;
     background:rgba(255,255,255,0.25);
     border:none;color:#fff;
-    width:42px;height:42px;border-radius:50%;
-    font-size:20px; display:flex;align-items:center;justify-content:center;
+    padding:10px 16px;border-radius:14px;
+    font-size:16px;font-weight:800; display:flex;align-items:center;justify-content:center;
   }
   main{flex:1;padding:20px 16px 40px;}
   .screen{display:none;animation:fadein .18s ease;}
@@ -71,18 +71,16 @@
     background:var(--card);
     border:3px solid var(--border);
     border-radius:18px;
-    padding:26px 14px;
-    font-size:19px;
-    font-weight:700;
+    padding:22px 14px;
+    font-size:24px;
+    font-weight:800;
     color:var(--brown);
     text-align:center;
     box-shadow:var(--shadow);
-    min-height:90px;
+    min-height:88px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:8px;
     line-height:1.35;
   }
-  .opt-btn .emoji{font-size:30px;}
   .opt-btn.selected{
     border-color:var(--orange);
     background:#FFF1E2;
@@ -93,15 +91,15 @@
   .branch-list{display:flex;flex-direction:column;gap:12px;max-height:56vh;overflow-y:auto;padding-right:2px;}
   .branch-item{
     background:var(--card);border:3px solid var(--border);border-radius:16px;
-    padding:20px;font-size:19px;font-weight:700;box-shadow:var(--shadow);
+    padding:20px;font-size:22px;font-weight:800;box-shadow:var(--shadow);
     display:flex;align-items:center;justify-content:space-between;
   }
   .branch-item.selected{border-color:var(--orange);background:#FFF1E2;color:var(--orange-dark);}
-  .branch-item .arrow{font-size:20px;color:var(--brown-light);}
+  .branch-item .arrow{font-size:22px;color:var(--brown-light);}
 
   .nav-row{display:flex;gap:12px;margin-top:22px;}
   .nav-btn{
-    flex:1;padding:18px;border:none;border-radius:16px;font-size:18px;font-weight:800;
+    flex:1;padding:20px;border:none;border-radius:16px;font-size:21px;font-weight:800;
     box-shadow:var(--shadow);
   }
   .nav-btn.back{background:#fff;color:var(--brown-light);border:3px solid var(--border);}
@@ -128,14 +126,13 @@
   .result-wait{margin-top:14px;font-size:15px;background:rgba(255,255,255,0.25);border-radius:12px;padding:10px;}
 
   .home-wrap{text-align:center;padding-top:6vh;}
-  .home-wrap .emoji-big{font-size:70px;}
   .home-btn{
-    margin-top:26px;width:100%;padding:34px;font-size:26px;font-weight:900;color:#fff;
+    margin-top:26px;width:100%;padding:34px;font-size:28px;font-weight:900;color:#fff;
     background:linear-gradient(135deg,var(--orange),var(--orange-dark));
     border:none;border-radius:22px;box-shadow:var(--shadow);
   }
   .home-btn:active{transform:scale(.98);}
-  .staff-link{margin-top:18px;font-size:14px;color:var(--brown-light);text-decoration:underline;background:none;border:none;padding:10px;}
+  .staff-link{margin-top:18px;font-size:16px;color:var(--brown-light);text-decoration:underline;background:none;border:none;padding:10px;}
 
   .lane-board{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
   .lane-card{
@@ -167,8 +164,7 @@
 
   /* 支部・班 選択方法 */
   .start-choice{display:flex;flex-direction:column;gap:14px;}
-  .start-choice .opt-btn{flex-direction:row;justify-content:flex-start;gap:16px;padding:22px 20px;min-height:76px;}
-  .start-choice .opt-btn .emoji{font-size:28px;}
+  .start-choice .opt-btn{flex-direction:row;justify-content:center;padding:24px 20px;min-height:80px;font-size:22px;}
 
   .branch-row{display:flex;gap:10px;margin-bottom:10px;}
   .branch-btn{flex:1;min-height:64px;padding:12px 8px;font-size:16px;}
@@ -209,8 +205,8 @@
     padding:0 20px;min-height:68px;display:flex;align-items:center;gap:12px;
     font-family:inherit;flex-shrink:0;box-shadow:var(--shadow);
   }
-  .addr-btn-label{font-size:19px;font-weight:800;color:var(--brown);}
-  .addr-btn-sub{font-size:14px;color:var(--brown-light);margin-left:auto;text-align:right;}
+  .addr-btn-label{font-size:22px;font-weight:800;color:var(--brown);}
+  .addr-btn-sub{font-size:16px;color:var(--brown-light);margin-left:auto;text-align:right;}
   .addr-not-found{text-align:center;padding:40px 20px;color:var(--brown-light);font-size:15px;line-height:1.8;}
 </style>
 </head>
@@ -219,7 +215,7 @@
   <header>
     <h1>会費ペイ登録相談会受付</h1>
     <div class="sub">タップだけで簡単受付</div>
-    <button class="gear-btn" onclick="goScreen('settings')">⚙️</button>
+    <button class="gear-btn" onclick="goScreen('settings')">設定</button>
   </header>
 
   <main>
@@ -227,10 +223,9 @@
     <!-- ホーム -->
     <section class="screen active" id="screen-home">
       <div class="home-wrap">
-        <div class="emoji-big">💳</div>
-        <div class="big-title" style="font-size:26px;margin-top:10px;">会費ペイ登録<br>相談会へようこそ</div>
-        <div class="hint">画面のボタンをタップして受付を進めます</div>
-        <button class="home-btn" onclick="startFlow()">👉　受付をはじめる</button>
+        <div class="big-title" style="font-size:30px;margin-top:10px;">会費ペイ登録<br>相談会へようこそ</div>
+        <div class="hint" style="font-size:16px;">画面のボタンをタップして受付を進めます</div>
+        <button class="home-btn" onclick="startFlow()">受付をはじめる</button>
         <button class="staff-link" onclick="goScreen('board')">スタッフ用：受付状況・列を見る</button>
       </div>
     </section>
@@ -241,12 +236,8 @@
       <div class="big-title">支部・班の選び方</div>
       <div class="hint">どちらかの方法で選んでください</div>
       <div class="start-choice">
-        <div class="opt-btn" onclick="openAddrModal()">
-          <div class="emoji">🏠</div><div>住所から選ぶ</div>
-        </div>
-        <div class="opt-btn" onclick="goScreen('branch')">
-          <div class="emoji">🏘️</div><div>支部・班を直接選ぶ</div>
-        </div>
+        <div class="opt-btn" onclick="openAddrModal()">住所から選ぶ</div>
+        <div class="opt-btn" onclick="goScreen('branch')">支部・班を直接選ぶ</div>
       </div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
@@ -333,7 +324,7 @@
       <div class="summary-card" id="confirmSummary"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('device')">戻る</button>
-        <button class="nav-btn submit" onclick="submitRegistration()">✅ 登録する</button>
+        <button class="nav-btn submit" onclick="submitRegistration()">登録する</button>
       </div>
     </section>
 
@@ -343,7 +334,7 @@
       <div class="result-lane" id="resultLane"></div>
       <div class="result-wait" id="resultWait"></div>
       <div class="nav-row">
-        <button class="nav-btn next" onclick="finishAndReset()">✅ 確認して終了（次の方へ）</button>
+        <button class="nav-btn next" onclick="finishAndReset()">確認して終了（次の方へ）</button>
       </div>
     </section>
 
@@ -360,7 +351,7 @@
       </div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
-        <button class="nav-btn next" onclick="exportCSV()">📄 CSVダウンロード</button>
+        <button class="nav-btn next" onclick="exportCSV()">CSVダウンロード</button>
       </div>
       <div class="nav-row">
         <button class="nav-btn next" style="background:var(--red);" onclick="confirmReset()">受付データを全てリセット</button>
@@ -404,19 +395,19 @@
 <script>
 /* ===================== マスタデータ ===================== */
 const HEARD_OPTIONS = [
-  {key:"kairanban", label:"回覧板", emoji:"📋"},
-  {key:"keijiban", label:"掲示板", emoji:"📌"},
-  {key:"line", label:"公式LINE", emoji:"💬"},
-  {key:"chijin", label:"知人から", emoji:"🗣️"},
+  {key:"kairanban", label:"回覧板"},
+  {key:"keijiban", label:"掲示板"},
+  {key:"line", label:"公式LINE"},
+  {key:"chijin", label:"知人から"},
 ];
 const PAY_OPTIONS = [
-  {key:"bank", label:"銀行口座引き落し", emoji:"🏦"},
-  {key:"card", label:"クレジットカード", emoji:"💳"},
+  {key:"bank", label:"銀行口座引き落し"},
+  {key:"card", label:"クレジットカード"},
 ];
 const DEVICE_OPTIONS = [
-  {key:"iphone", label:"iPhone", emoji:"📱"},
-  {key:"android", label:"Android", emoji:"🤖"},
-  {key:"pc", label:"パソコン", emoji:"💻"},
+  {key:"iphone", label:"iPhone"},
+  {key:"android", label:"Android"},
+  {key:"pc", label:"パソコン"},
 ];
 const LANE_NAMES = {
   "bank_iphone":"A列", "bank_android":"B列", "bank_pc":"C列",
@@ -430,17 +421,17 @@ function laneLabel(pay, device){
 
 /* 支部一覧（小川自治会） */
 const BRANCHES = [
-  {id:"shimo1",  label:"下小川1支部",   icon:"🏘️"},
-  {id:"shimo2",  label:"下小川2支部",   icon:"🏘️"},
-  {id:"shimo3",  label:"下小川3支部",   icon:"🏘️"},
-  {id:"sengn1",  label:"せんげん1支部", icon:"🏡"},
-  {id:"sengn2",  label:"せんげん2支部", icon:"🏡"},
-  {id:"hachi1",  label:"蜂谷戸1支部",  icon:"🌿"},
-  {id:"hachi2",  label:"蜂谷戸2支部",  icon:"🌿"},
-  {id:"yanagi1", label:"柳谷戸1支部",  icon:"🌾"},
-  {id:"yanagi2", label:"柳谷戸2支部",  icon:"🌾"},
-  {id:"yanagi3", label:"柳谷戸3支部",  icon:"🌾"},
-  {id:"kaede",   label:"かえで支部",   icon:"🍁"},
+  {id:"shimo1",  label:"下小川1支部"},
+  {id:"shimo2",  label:"下小川2支部"},
+  {id:"shimo3",  label:"下小川3支部"},
+  {id:"sengn1",  label:"せんげん1支部"},
+  {id:"sengn2",  label:"せんげん2支部"},
+  {id:"hachi1",  label:"蜂谷戸1支部"},
+  {id:"hachi2",  label:"蜂谷戸2支部"},
+  {id:"yanagi1", label:"柳谷戸1支部"},
+  {id:"yanagi2", label:"柳谷戸2支部"},
+  {id:"yanagi3", label:"柳谷戸3支部"},
+  {id:"kaede",   label:"かえで支部"},
 ];
 
 const GROUPS = [
@@ -1941,7 +1932,7 @@ function renderBranchList(){
   BRANCHES.forEach((b)=>{
     const div = document.createElement("div");
     div.className = "branch-item";
-    div.innerHTML = `<span>${b.icon} ${escapeHtml(b.label)}</span><span class="arrow">›</span>`;
+    div.innerHTML = `<span>${escapeHtml(b.label)}</span><span class="arrow">›</span>`;
     div.onclick = ()=>{
       document.querySelectorAll("#branchList .branch-item").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
@@ -2111,7 +2102,7 @@ function renderHeardGrid(){
   HEARD_OPTIONS.forEach(o=>{
     const div = document.createElement("div");
     div.className = "opt-btn";
-    div.innerHTML = `<div class="emoji">${o.emoji}</div><div>${o.label}</div>`;
+    div.innerHTML = `<div>${escapeHtml(o.label)}</div>`;
     div.onclick = ()=>{
       document.querySelectorAll("#heardGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
@@ -2129,7 +2120,7 @@ function renderPayGrid(){
   PAY_OPTIONS.forEach(o=>{
     const div = document.createElement("div");
     div.className = "opt-btn";
-    div.innerHTML = `<div class="emoji">${o.emoji}</div><div>${o.label}</div>`;
+    div.innerHTML = `<div>${escapeHtml(o.label)}</div>`;
     div.onclick = ()=>{
       document.querySelectorAll("#payGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
@@ -2147,7 +2138,7 @@ function renderDeviceGrid(){
   DEVICE_OPTIONS.forEach(o=>{
     const div = document.createElement("div");
     div.className = "opt-btn";
-    div.innerHTML = `<div class="emoji">${o.emoji}</div><div>${o.label}</div>`;
+    div.innerHTML = `<div>${escapeHtml(o.label)}</div>`;
     div.onclick = ()=>{
       document.querySelectorAll("#deviceGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
