@@ -46,38 +46,30 @@
   }
   header h1{margin:0;font-size:24px;font-weight:800;letter-spacing:.02em;}
   header .sub{margin-top:4px;font-size:13px;opacity:.9;}
-  .gear-btn{
-    position:absolute; top:16px; right:14px;
-    background:rgba(255,255,255,0.25);
-    border:none;color:#fff;
-    padding:10px 16px;border-radius:14px;
-    font-size:16px;font-weight:800; display:flex;align-items:center;justify-content:center;
-  }
-  main{flex:1;padding:20px 16px 40px;}
-  .screen{display:none;animation:fadein .18s ease;}
-  .screen.active{display:block;}
+  main{flex:1;padding:20px 16px 40px;display:flex;flex-direction:column;}
+  .screen{display:none;flex-direction:column;flex:1;min-height:0;animation:fadein .18s ease;}
+  .screen.active{display:flex;}
   @keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 
-  .progress{display:flex;gap:6px;margin-bottom:18px;}
+  .progress{display:flex;gap:6px;margin-bottom:18px;flex-shrink:0;}
   .progress div{flex:1;height:8px;border-radius:5px;background:var(--border);}
   .progress div.done{background:var(--orange);}
 
-  .big-title{font-size:22px;font-weight:800;margin:6px 0 4px;color:var(--brown);}
-  .hint{font-size:14px;color:var(--brown-light);margin-bottom:18px;}
+  .big-title{font-size:22px;font-weight:800;margin:6px 0 4px;color:var(--brown);flex-shrink:0;}
+  .hint{font-size:14px;color:var(--brown-light);margin-bottom:18px;flex-shrink:0;}
 
-  .btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .btn-grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px;flex:1;min-height:0;}
   .btn-grid.single{grid-template-columns:1fr;}
   .opt-btn{
     background:var(--card);
     border:3px solid var(--border);
     border-radius:18px;
-    padding:22px 14px;
-    font-size:24px;
+    padding:16px;
+    font-size:26px;
     font-weight:800;
     color:var(--brown);
     text-align:center;
     box-shadow:var(--shadow);
-    min-height:88px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     line-height:1.35;
   }
@@ -88,16 +80,17 @@
   }
   .opt-btn:active{transform:scale(0.97);}
 
-  .branch-list{display:flex;flex-direction:column;gap:12px;max-height:56vh;overflow-y:auto;padding-right:2px;}
+  .branch-list{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0;overflow-y:auto;padding-right:2px;}
   .branch-item{
     background:var(--card);border:3px solid var(--border);border-radius:16px;
     padding:20px;font-size:22px;font-weight:800;box-shadow:var(--shadow);
     display:flex;align-items:center;justify-content:space-between;
+    flex-shrink:0;
   }
   .branch-item.selected{border-color:var(--orange);background:#FFF1E2;color:var(--orange-dark);}
   .branch-item .arrow{font-size:22px;color:var(--brown-light);}
 
-  .nav-row{display:flex;gap:12px;margin-top:22px;}
+  .nav-row{display:flex;gap:12px;margin-top:22px;flex-shrink:0;}
   .nav-btn{
     flex:1;padding:20px;border:none;border-radius:16px;font-size:21px;font-weight:800;
     box-shadow:var(--shadow);
@@ -163,8 +156,8 @@
   .dot.off{background:var(--red);}
 
   /* 支部・班 選択方法 */
-  .start-choice{display:flex;flex-direction:column;gap:14px;}
-  .start-choice .opt-btn{flex-direction:row;justify-content:center;padding:24px 20px;min-height:80px;font-size:22px;}
+  .start-choice{display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;}
+  .start-choice .opt-btn{flex:1;font-size:26px;}
 
   .branch-row{display:flex;gap:10px;margin-bottom:10px;}
   .branch-btn{flex:1;min-height:64px;padding:12px 8px;font-size:16px;}
@@ -215,7 +208,6 @@
   <header>
     <h1>会費ペイ登録相談会受付</h1>
     <div class="sub">タップだけで簡単受付</div>
-    <button class="gear-btn" onclick="goScreen('settings')">設定</button>
   </header>
 
   <main>
@@ -355,34 +347,6 @@
       </div>
       <div class="nav-row">
         <button class="nav-btn next" style="background:var(--red);" onclick="confirmReset()">受付データを全てリセット</button>
-      </div>
-    </section>
-
-    <!-- 設定 -->
-    <section class="screen" id="screen-settings">
-      <div class="big-title">設定</div>
-
-      <div class="settings-section">
-        <h3>Firebase 連携（複数端末で列の人数を共有）</h3>
-        <div class="hint" style="margin-bottom:10px;">Firebaseプロジェクトの設定値を入力して保存してください。未設定の場合はこの端末内だけにデータが保存されます。</div>
-        <input type="text" id="fbApiKey" placeholder="apiKey">
-        <input type="text" id="fbAuthDomain" placeholder="authDomain">
-        <input type="text" id="fbProjectId" placeholder="projectId">
-        <input type="text" id="fbStorageBucket" placeholder="storageBucket（任意）">
-        <input type="text" id="fbMessagingSenderId" placeholder="messagingSenderId（任意）">
-        <input type="text" id="fbAppId" placeholder="appId">
-        <button class="small-btn" onclick="saveFirebaseConfig()">保存して接続</button>
-        <button class="small-btn gray" onclick="clearFirebaseConfig()">連携解除（端末内保存に戻す）</button>
-        <div style="margin-top:10px;font-size:13px;" id="fbStatus"></div>
-      </div>
-
-      <div class="settings-section">
-        <h3>支部・班データについて</h3>
-        <div class="hint" style="margin-bottom:0;">支部・班は小川自治会の住所マップに基づいて自動判定されます（マスタは全端末共通の固定データです）。</div>
-      </div>
-
-      <div class="nav-row">
-        <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
       </div>
     </section>
 
@@ -1908,7 +1872,6 @@ function goScreen(name){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById("screen-"+name).classList.add("active");
   if(name==="board") renderBoard();
-  if(name==="settings") { loadFbFormFromStorage(); }
 }
 function resetFlowUI(){
   state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
@@ -2299,49 +2262,6 @@ const DEFAULT_FIREBASE_CONFIG = {
   messagingSenderId: "849455476783",
   appId: "1:849455476783:web:bb7293da83f176167e56da"
 };
-function loadFbFormFromStorage(){
-  const cfg = loadLocal("kaihi_fb_config", null) || DEFAULT_FIREBASE_CONFIG;
-  if(cfg){
-    document.getElementById("fbApiKey").value = cfg.apiKey||"";
-    document.getElementById("fbAuthDomain").value = cfg.authDomain||"";
-    document.getElementById("fbProjectId").value = cfg.projectId||"";
-    document.getElementById("fbStorageBucket").value = cfg.storageBucket||"";
-    document.getElementById("fbMessagingSenderId").value = cfg.messagingSenderId||"";
-    document.getElementById("fbAppId").value = cfg.appId||"";
-  }
-  updateConnStatus();
-}
-function saveFirebaseConfig(){
-  const cfg = {
-    apiKey: document.getElementById("fbApiKey").value.trim(),
-    authDomain: document.getElementById("fbAuthDomain").value.trim(),
-    projectId: document.getElementById("fbProjectId").value.trim(),
-    storageBucket: document.getElementById("fbStorageBucket").value.trim(),
-    messagingSenderId: document.getElementById("fbMessagingSenderId").value.trim(),
-    appId: document.getElementById("fbAppId").value.trim(),
-  };
-  if(!cfg.apiKey || !cfg.projectId){
-    alert("apiKey と projectId は必須です");
-    return;
-  }
-  saveLocal("kaihi_fb_config", cfg);
-  localStorage.removeItem("kaihi_fb_disabled");
-  tryConnectFirebase(()=>{
-    alert("Firebaseに接続しました。");
-  });
-}
-function clearFirebaseConfig(){
-  localStorage.removeItem("kaihi_fb_config");
-  saveLocal("kaihi_fb_disabled", true); // 既定のFirebase設定にも自動で戻らないようにする
-  if(window._fbUnsub){ window._fbUnsub(); window._fbUnsub = null; }
-  if(window._fbApp){ window._fbApp.delete().catch(()=>{}); window._fbApp = null; }
-  usingFirebase = false;
-  db = null;
-  updateConnStatus();
-  ["fbApiKey","fbAuthDomain","fbProjectId","fbStorageBucket","fbMessagingSenderId","fbAppId"].forEach(id=>{
-    document.getElementById(id).value = "";
-  });
-}
 function tryConnectFirebase(onSuccess){
   let cfg = loadLocal("kaihi_fb_config", null);
   if(!cfg || !cfg.apiKey || !cfg.projectId){
