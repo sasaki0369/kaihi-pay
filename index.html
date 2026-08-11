@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>会費ペイ登録相談会受付</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💳</text></svg>">
+<style>
+  :root{
+    --cream:#FFF8EE;
+    --card:#FFFFFF;
+    --orange:#FF8A3D;
+    --orange-dark:#E86F1F;
+    --brown:#5A3E2B;
+    --brown-light:#8A7060;
+    --green:#4CAF7D;
+    --blue:#4A90D9;
+    --red:#E85D5D;
+    --border:#F0DFC8;
+    --shadow: 0 4px 14px rgba(90,62,43,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    font-family:"Hiragino Maru Gothic ProN","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--cream);
+    color:var(--brown);
+    -webkit-tap-highlight-color: transparent;
+    user-select:none;
+  }
+  #app{max-width:900px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  header{
+    background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+    color:#fff;
+    padding:22px 20px 20px;
+    text-align:center;
+    box-shadow:var(--shadow);
+    position:relative;
+  }
+  header h1{margin:0;font-size:24px;font-weight:800;letter-spacing:.02em;}
+  header .sub{margin-top:4px;font-size:13px;opacity:.9;}
+  .gear-btn{
+    position:absolute; top:16px; right:14px;
+    background:rgba(255,255,255,0.25);
+    border:none;color:#fff;
+    width:42px;height:42px;border-radius:50%;
+    font-size:20px; display:flex;align-items:center;justify-content:center;
+  }
+  main{flex:1;padding:20px 16px 40px;}
+  .screen{display:none;animation:fadein .18s ease;}
+  .screen.active{display:block;}
+  @keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  .progress{display:flex;gap:6px;margin-bottom:18px;}
+  .progress div{flex:1;height:8px;border-radius:5px;background:var(--border);}
+  .progress div.done{background:var(--orange);}
+
+  .big-title{font-size:22px;font-weight:800;margin:6px 0 4px;color:var(--brown);}
+  .hint{font-size:14px;color:var(--brown-light);margin-bottom:18px;}
+
+  .btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .btn-grid.single{grid-template-columns:1fr;}
+  .opt-btn{
+    background:var(--card);
+    border:3px solid var(--border);
+    border-radius:18px;
+    padding:26px 14px;
+    font-size:19px;
+    font-weight:700;
+    color:var(--brown);
+    text-align:center;
+    box-shadow:var(--shadow);
+    min-height:90px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;
+    line-height:1.35;
+  }
+  .opt-btn .emoji{font-size:30px;}
+  .opt-btn.selected{
+    border-color:var(--orange);
+    background:#FFF1E2;
+    color:var(--orange-dark);
+  }
+  .opt-btn:active{transform:scale(0.97);}
+
+  .branch-list{display:flex;flex-direction:column;gap:12px;max-height:56vh;overflow-y:auto;padding-right:2px;}
+  .branch-item{
+    background:var(--card);border:3px solid var(--border);border-radius:16px;
+    padding:20px;font-size:19px;font-weight:700;box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .branch-item.selected{border-color:var(--orange);background:#FFF1E2;color:var(--orange-dark);}
+  .branch-item .arrow{font-size:20px;color:var(--brown-light);}
+
+  .nav-row{display:flex;gap:12px;margin-top:22px;}
+  .nav-btn{
+    flex:1;padding:18px;border:none;border-radius:16px;font-size:18px;font-weight:800;
+    box-shadow:var(--shadow);
+  }
+  .nav-btn.back{background:#fff;color:var(--brown-light);border:3px solid var(--border);}
+  .nav-btn.next{background:var(--orange);color:#fff;}
+  .nav-btn.next:disabled{background:#E9D9C4;color:#fff;}
+  .nav-btn.submit{background:var(--green);color:#fff;}
+
+  .summary-card{
+    background:var(--card);border:3px solid var(--border);border-radius:18px;
+    padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px;
+  }
+  .summary-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border);font-size:16px;}
+  .summary-row:last-child{border-bottom:none;}
+  .summary-row .k{color:var(--brown-light);font-weight:700;}
+  .summary-row .v{font-weight:800;}
+
+  .result-lane{
+    background:linear-gradient(135deg,var(--green),#3d9468);
+    color:#fff;border-radius:22px;padding:34px 20px;text-align:center;box-shadow:var(--shadow);
+  }
+  .result-lane .label{font-size:16px;opacity:.9;font-weight:700;}
+  .result-lane .lane{font-size:56px;font-weight:900;margin:10px 0;letter-spacing:.05em;}
+  .result-lane .desc{font-size:16px;font-weight:700;}
+  .result-wait{margin-top:14px;font-size:15px;background:rgba(255,255,255,0.25);border-radius:12px;padding:10px;}
+
+  .home-wrap{text-align:center;padding-top:6vh;}
+  .home-wrap .emoji-big{font-size:70px;}
+  .home-btn{
+    margin-top:26px;width:100%;padding:34px;font-size:26px;font-weight:900;color:#fff;
+    background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+    border:none;border-radius:22px;box-shadow:var(--shadow);
+  }
+  .home-btn:active{transform:scale(.98);}
+  .staff-link{margin-top:18px;font-size:14px;color:var(--brown-light);text-decoration:underline;background:none;border:none;padding:10px;}
+
+  .lane-board{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
+  .lane-card{
+    background:var(--card);border:3px solid var(--border);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow);
+  }
+  .lane-card .lname{font-size:14px;font-weight:800;color:var(--brown-light);}
+  .lane-card .lcount{font-size:34px;font-weight:900;color:var(--orange-dark);}
+
+  .settings-section{background:var(--card);border:3px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .settings-section h3{margin:0 0 10px;font-size:16px;}
+  input[type=text], textarea, input[type=password]{
+    width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:8px;font-family:inherit;
+  }
+  .small-btn{padding:10px 16px;border-radius:10px;border:none;background:var(--orange);color:#fff;font-weight:700;font-size:14px;}
+  .small-btn.danger{background:var(--red);}
+  .small-btn.gray{background:var(--brown-light);}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .chip{background:#FFF1E2;color:var(--orange-dark);padding:8px 12px;border-radius:20px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .chip button{border:none;background:none;color:var(--red);font-weight:900;font-size:14px;}
+
+  table.reglist{width:100%;border-collapse:collapse;font-size:13px;}
+  table.reglist th,table.reglist td{border-bottom:1px solid var(--border);padding:8px 4px;text-align:left;}
+  table.reglist th{color:var(--brown-light);font-size:12px;}
+
+  .status-banner{position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:12px;padding:6px;color:var(--brown-light);background:rgba(255,248,238,0.9);}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+  .dot.on{background:var(--green);}
+  .dot.off{background:var(--red);}
+
+  /* 支部・班 選択方法 */
+  .start-choice{display:flex;flex-direction:column;gap:14px;}
+  .start-choice .opt-btn{flex-direction:row;justify-content:flex-start;gap:16px;padding:22px 20px;min-height:76px;}
+  .start-choice .opt-btn .emoji{font-size:28px;}
+
+  .branch-row{display:flex;gap:10px;margin-bottom:10px;}
+  .branch-btn{flex:1;min-height:64px;padding:12px 8px;font-size:16px;}
+
+  /* 住所選択モーダル */
+  .addr-overlay{
+    display:none;position:fixed;inset:0;background:rgba(90,62,43,0.5);
+    z-index:500;align-items:flex-end;justify-content:center;
+  }
+  .addr-overlay.visible{display:flex;}
+  .addr-sheet{
+    background:var(--cream);
+    border-radius:22px 22px 0 0;
+    width:100%;max-width:900px;height:80dvh;
+    display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    animation:addrSlideUp .2s ease both;
+    overflow:hidden;
+  }
+  @keyframes addrSlideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  .addr-header{
+    display:flex;align-items:center;gap:10px;
+    padding:16px 16px 12px;
+    background:var(--card);
+    border-bottom:2px solid var(--border);
+    flex-shrink:0;
+  }
+  .addr-title{font-size:18px;font-weight:800;color:var(--brown);flex:1;}
+  .addr-back-btn{
+    background:var(--cream);border:2px solid var(--border);border-radius:10px;
+    padding:9px 16px;font-size:14px;font-weight:700;color:var(--brown-light);
+  }
+  .addr-breadcrumb{font-size:13px;color:var(--brown-light);padding:8px 16px;flex-shrink:0;min-height:26px;}
+  .addr-breadcrumb span{color:var(--orange-dark);font-weight:800;}
+  .addr-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:10px 16px 16px;}
+  .addr-btn{
+    background:var(--card);border:3px solid var(--border);border-radius:16px;
+    padding:0 20px;min-height:68px;display:flex;align-items:center;gap:12px;
+    font-family:inherit;flex-shrink:0;box-shadow:var(--shadow);
+  }
+  .addr-btn-label{font-size:19px;font-weight:800;color:var(--brown);}
+  .addr-btn-sub{font-size:14px;color:var(--brown-light);margin-left:auto;text-align:right;}
+  .addr-not-found{text-align:center;padding:40px 20px;color:var(--brown-light);font-size:15px;line-height:1.8;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>会費ペイ登録相談会受付</h1>
+    <div class="sub">タップだけで簡単受付</div>
+    <button class="gear-btn" onclick="goScreen('settings')">⚙️</button>
+  </header>
+
+  <main>
+
+    <!-- ホーム -->
+    <section class="screen active" id="screen-home">
+      <div class="home-wrap">
+        <div class="emoji-big">💳</div>
+        <div class="big-title" style="font-size:26px;margin-top:10px;">会費ペイ登録<br>相談会へようこそ</div>
+        <div class="hint">画面のボタンをタップして受付を進めます</div>
+        <button class="home-btn" onclick="startFlow()">👉　受付をはじめる</button>
+        <button class="staff-link" onclick="goScreen('board')">スタッフ用：受付状況・列を見る</button>
+      </div>
+    </section>
+
+    <!-- STEP0: 選択方法 -->
+    <section class="screen" id="screen-startchoice">
+      <div class="progress"><div class="done"></div><div></div><div></div><div></div><div></div></div>
+      <div class="big-title">支部・班の選び方</div>
+      <div class="hint">どちらかの方法で選んでください</div>
+      <div class="start-choice">
+        <div class="opt-btn" onclick="openAddrModal()">
+          <div class="emoji">🏠</div><div>住所から選ぶ</div>
+        </div>
+        <div class="opt-btn" onclick="goScreen('branch')">
+          <div class="emoji">🏘️</div><div>支部・班を直接選ぶ</div>
+        </div>
+      </div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
+      </div>
+    </section>
+
+    <!-- STEP1: 支部 -->
+    <section class="screen" id="screen-branch">
+      <div class="progress"><div class="done"></div><div></div><div></div><div></div><div></div></div>
+      <div class="big-title">支部を選んでください</div>
+      <div class="hint">お住まいの地区の支部をタップ</div>
+      <div class="branch-list" id="branchList"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('startchoice')">戻る</button>
+        <button class="nav-btn next" id="branchNext" disabled onclick="toGroupStep()">次へ</button>
+      </div>
+    </section>
+
+    <!-- STEP2: 班 -->
+    <section class="screen" id="screen-group">
+      <div class="progress"><div class="done"></div><div class="done"></div><div></div><div></div><div></div></div>
+      <div class="big-title">班を選んでください</div>
+      <div class="hint" id="groupHint">班をタップ</div>
+      <div class="branch-list" id="groupList"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('branch')">戻る</button>
+        <button class="nav-btn next" id="groupNext" disabled onclick="goScreen('heard')">次へ</button>
+      </div>
+    </section>
+
+    <!-- 住所選択モーダル -->
+    <div class="addr-overlay" id="addrOverlay">
+      <div class="addr-sheet">
+        <div class="addr-header">
+          <button class="addr-back-btn" id="addrBackBtn" onclick="addrBack()">◀ 戻る</button>
+          <div class="addr-title" id="addrTitle">丁目を選んでください</div>
+          <button class="addr-back-btn" onclick="closeAddrModal()">✕ 閉じる</button>
+        </div>
+        <div class="addr-breadcrumb" id="addrBreadcrumb"></div>
+        <div class="addr-list" id="addrList"></div>
+      </div>
+    </div>
+
+    <!-- STEP3: 何を見てきたか -->
+    <section class="screen" id="screen-heard">
+      <div class="progress"><div class="done"></div><div class="done"></div><div class="done"></div><div></div><div></div></div>
+      <div class="big-title">何を見て来られましたか？</div>
+      <div class="hint">当てはまるものをひとつタップ</div>
+      <div class="btn-grid" id="heardGrid"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('group')">戻る</button>
+        <button class="nav-btn next" id="heardNext" disabled onclick="goScreen('pay')">次へ</button>
+      </div>
+    </section>
+
+    <!-- STEP4: 支払い方法 -->
+    <section class="screen" id="screen-pay">
+      <div class="progress"><div class="done"></div><div class="done"></div><div class="done"></div><div class="done"></div><div></div></div>
+      <div class="big-title">会費の支払い方法を選んでください</div>
+      <div class="hint">ご希望の方法をタップ</div>
+      <div class="btn-grid single" id="payGrid"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('heard')">戻る</button>
+        <button class="nav-btn next" id="payNext" disabled onclick="goScreen('device')">次へ</button>
+      </div>
+    </section>
+
+    <!-- STEP5: 登録端末 -->
+    <section class="screen" id="screen-device">
+      <div class="progress"><div class="done"></div><div class="done"></div><div class="done"></div><div class="done"></div><div class="done"></div></div>
+      <div class="big-title">登録に使う端末を選んでください</div>
+      <div class="hint">お手元の端末をタップ</div>
+      <div class="btn-grid" id="deviceGrid"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('pay')">戻る</button>
+        <button class="nav-btn next" id="deviceNext" disabled onclick="goScreen('confirm')">次へ</button>
+      </div>
+    </section>
+
+    <!-- 確認 -->
+    <section class="screen" id="screen-confirm">
+      <div class="big-title">入力内容の確認</div>
+      <div class="hint">よろしければ「登録する」をタップしてください</div>
+      <div class="summary-card" id="confirmSummary"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('device')">戻る</button>
+        <button class="nav-btn submit" onclick="submitRegistration()">✅ 登録する</button>
+      </div>
+    </section>
+
+    <!-- 完了 -->
+    <section class="screen" id="screen-done">
+      <div class="big-title" style="text-align:center;">受付が完了しました</div>
+      <div class="result-lane" id="resultLane"></div>
+      <div class="result-wait" id="resultWait"></div>
+      <div class="nav-row">
+        <button class="nav-btn next" onclick="goScreen('home')">👉 トップにもどる</button>
+      </div>
+    </section>
+
+    <!-- スタッフ：受付状況ボード -->
+    <section class="screen" id="screen-board">
+      <div class="big-title">受付状況・列のご案内</div>
+      <div class="hint">支払い方法 × 端末の組み合わせで6つの列があります</div>
+      <div class="lane-board" id="laneBoard"></div>
+      <div class="settings-section" style="margin-top:20px;">
+        <h3>受付一覧（最新順）</h3>
+        <div style="overflow-x:auto;">
+        <table class="reglist" id="regTable"></table>
+        </div>
+      </div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
+        <button class="nav-btn next" style="background:var(--red);" onclick="confirmReset()">受付データを全てリセット</button>
+      </div>
+    </section>
+
+    <!-- 設定 -->
+    <section class="screen" id="screen-settings">
+      <div class="big-title">設定</div>
+
+      <div class="settings-section">
+        <h3>Firebase 連携（複数端末で列の人数を共有）</h3>
+        <div class="hint" style="margin-bottom:10px;">Firebaseプロジェクトの設定値を入力して保存してください。未設定の場合はこの端末内だけにデータが保存されます。</div>
+        <input type="text" id="fbApiKey" placeholder="apiKey">
+        <input type="text" id="fbAuthDomain" placeholder="authDomain">
+        <input type="text" id="fbProjectId" placeholder="projectId">
+        <input type="text" id="fbStorageBucket" placeholder="storageBucket（任意）">
+        <input type="text" id="fbMessagingSenderId" placeholder="messagingSenderId（任意）">
+        <input type="text" id="fbAppId" placeholder="appId">
+        <button class="small-btn" onclick="saveFirebaseConfig()">保存して接続</button>
+        <button class="small-btn gray" onclick="clearFirebaseConfig()">連携解除（端末内保存に戻す）</button>
+        <div style="margin-top:10px;font-size:13px;" id="fbStatus"></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>支部・班データについて</h3>
+        <div class="hint" style="margin-bottom:0;">支部・班は小川自治会の住所マップに基づいて自動判定されます（マスタは全端末共通の固定データです）。</div>
+      </div>
+
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
+      </div>
+    </section>
+
+  </main>
+  <div class="status-banner"><span class="dot" id="connDot"></span><span id="connText">端末内保存モード</span></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ===================== マスタデータ ===================== */
+const HEARD_OPTIONS = [
+  {key:"kairanban", label:"回覧板", emoji:"📋"},
+  {key:"keijiban", label:"掲示板", emoji:"📌"},
+  {key:"line", label:"公式LINE", emoji:"💬"},
+  {key:"chijin", label:"知人から", emoji:"🗣️"},
+];
+const PAY_OPTIONS = [
+  {key:"bank", label:"銀行口座振替え", emoji:"🏦"},
+  {key:"card", label:"クレジットカード", emoji:"💳"},
+];
+const DEVICE_OPTIONS = [
+  {key:"iphone", label:"iPhone", emoji:"📱"},
+  {key:"android", label:"Android", emoji:"🤖"},
+  {key:"pc", label:"パソコン", emoji:"💻"},
+];
+const LANE_NAMES = {
+  "bank_iphone":"A列", "bank_android":"B列", "bank_pc":"C列",
+  "card_iphone":"D列", "card_android":"E列", "card_pc":"F列",
+};
+function laneLabel(pay, device){
+  const payLabel = PAY_OPTIONS.find(p=>p.key===pay)?.label || pay;
+  const devLabel = DEVICE_OPTIONS.find(d=>d.key===device)?.label || device;
+  return {name: LANE_NAMES[pay+"_"+device], desc: payLabel+" × "+devLabel};
+}
+
+/* 支部一覧（小川自治会） */
+const BRANCHES = [
+  {id:"shimo1",  label:"下小川1支部",   icon:"🏘️"},
+  {id:"shimo2",  label:"下小川2支部",   icon:"🏘️"},
+  {id:"shimo3",  label:"下小川3支部",   icon:"🏘️"},
+  {id:"sengn1",  label:"せんげん1支部", icon:"🏡"},
+  {id:"sengn2",  label:"せんげん2支部", icon:"🏡"},
+  {id:"hachi1",  label:"蜂谷戸1支部",  icon:"🌿"},
+  {id:"hachi2",  label:"蜂谷戸2支部",  icon:"🌿"},
+  {id:"yanagi1", label:"柳谷戸1支部",  icon:"🌾"},
+  {id:"yanagi2", label:"柳谷戸2支部",  icon:"🌾"},
+  {id:"yanagi3", label:"柳谷戸3支部",  icon:"🌾"},
+  {id:"kaede",   label:"かえで支部",   icon:"🍁"},
+];
+
+const GROUPS = [
+  {id:"b1", label:"1班"},
+  {id:"b2", label:"2班"},
+  {id:"b3", label:"3班"},
+  {id:"b4", label:"4班"},
+  {id:"b5", label:"5班"},
+  {id:"b6", label:"6班"},
+];
+
+/* 支部ごとの班数マッピング */
+const BRANCH_GROUPS = {
+  shimo1:  ["b1","b2","b3","b4","b5"],
+  shimo2:  ["b1","b2","b3","b4","b5"],
+  shimo3:  ["b1","b2","b3","b4","b5","b6"],
+  sengn1:  ["b1","b2","b3","b4","b5"],
+  sengn2:  ["b1","b2","b3","b4","b5","b6"],
+  hachi1:  ["b1","b2","b3","b4","b5","b6"],
+  hachi2:  ["b1","b2","b3","b4","b5"],
+  yanagi1: ["b1","b2","b3","b4","b5"],
+  yanagi2: ["b1","b2","b3","b4"],
+  yanagi3: ["b1","b2","b3","b4","b5"],
+  kaede:   ["b1","b2","b3","b4","b5"],
+};
+
+/* 住所→支部・班 マッピング（小川自治会 全1,210件）
+   構造: ADDRESS_MAP["丁目"]["番地"]["号"] = { branch: "支部ID", group: "班ID" } */
+const ADDRESS_MAP = {
+  "1丁目": {
+    "1": {
+      "2": {branch:"sengn1", group:"b5"},
+      "6": {branch:"sengn1", group:"b5"},
+      "7": {branch:"sengn1", group:"b5"},
+      "11": {branch:"sengn1", group:"b5"},
+      "12": {branch:"sengn1", group:"b5"},
+      "13": {branch:"sengn1", group:"b5"},
+      "14": {branch:"sengn1", group:"b5"},
+      "15": {branch:"sengn1", group:"b5"},
+      "16": {branch:"sengn1", group:"b5"},
+      "17": {branch:"sengn1", group:"b5"},
+    },
+    "2": {
+      "3": {branch:"sengn1", group:"b5"},
+      "4": {branch:"sengn1", group:"b5"},
+      "5": {branch:"sengn1", group:"b5"},
+      "6": {branch:"sengn1", group:"b5"},
+      "7": {branch:"sengn1", group:"b5"},
+      "9": {branch:"sengn1", group:"b5"},
+      "12": {branch:"sengn1", group:"b5"},
+      "21": {branch:"sengn1", group:"b5"},
+      "22": {branch:"sengn1", group:"b5"},
+      "23": {branch:"sengn1", group:"b5"},
+      "24": {branch:"sengn1", group:"b5"},
+      "25": {branch:"sengn1", group:"b5"},
+    },
+    "3": {
+      "3": {branch:"sengn2", group:"b2"},
+      "4": {branch:"sengn2", group:"b2"},
+      "5": {branch:"sengn2", group:"b2"},
+      "6": {branch:"sengn2", group:"b2"},
+    },
+    "4": {
+      "2": {branch:"sengn2", group:"b6"},
+      "4": {branch:"sengn2", group:"b1"},
+      "5": {branch:"sengn2", group:"b1"},
+      "6": {branch:"sengn2", group:"b1"},
+      "7": {branch:"sengn2", group:"b1"},
+      "8": {branch:"sengn2", group:"b1"},
+      "9": {branch:"sengn2", group:"b1"},
+      "10": {branch:"sengn2", group:"b1"},
+      "12": {branch:"sengn2", group:"b1"},
+      "13": {branch:"sengn2", group:"b1"},
+      "14": {branch:"sengn2", group:"b1"},
+      "15": {branch:"sengn2", group:"b1"},
+      "16": {branch:"sengn2", group:"b1"},
+      "17": {branch:"sengn2", group:"b1"},
+      "18": {branch:"sengn2", group:"b1"},
+      "20": {branch:"sengn2", group:"b1"},
+      "21": {branch:"sengn2", group:"b1"},
+      "22": {branch:"sengn2", group:"b1"},
+    },
+    "5": {
+      "1": {branch:"sengn2", group:"b2"},
+      "2": {branch:"sengn2", group:"b2"},
+      "3": {branch:"sengn2", group:"b2"},
+      "4": {branch:"sengn2", group:"b2"},
+      "5": {branch:"sengn2", group:"b2"},
+      "6": {branch:"sengn2", group:"b2"},
+      "8": {branch:"sengn2", group:"b2"},
+      "9": {branch:"sengn2", group:"b2"},
+      "10": {branch:"sengn2", group:"b2"},
+      "11": {branch:"sengn2", group:"b2"},
+      "14": {branch:"sengn2", group:"b2"},
+      "15": {branch:"sengn2", group:"b2"},
+      "16": {branch:"sengn2", group:"b2"},
+      "17": {branch:"sengn2", group:"b2"},
+    },
+    "6": {
+      "2": {branch:"sengn2", group:"b3"},
+      "3": {branch:"sengn2", group:"b3"},
+      "5": {branch:"sengn2", group:"b3"},
+      "8": {branch:"sengn2", group:"b3"},
+      "10": {branch:"sengn2", group:"b3"},
+      "11": {branch:"sengn2", group:"b3"},
+      "12": {branch:"sengn2", group:"b3"},
+      "14": {branch:"sengn2", group:"b3"},
+      "15": {branch:"sengn2", group:"b3"},
+      "16": {branch:"sengn2", group:"b3"},
+      "17": {branch:"sengn2", group:"b3"},
+      "18": {branch:"sengn2", group:"b3"},
+      "19": {branch:"sengn2", group:"b3"},
+      "21": {branch:"sengn2", group:"b3"},
+      "23": {branch:"sengn2", group:"b3"},
+      "26": {branch:"sengn2", group:"b3"},
+      "27": {branch:"sengn2", group:"b3"},
+      "29": {branch:"sengn2", group:"b3"},
+      "30": {branch:"sengn2", group:"b3"},
+      "31": {branch:"sengn2", group:"b3"},
+      "36": {branch:"sengn2", group:"b3"},
+      "37": {branch:"sengn2", group:"b3"},
+      "38": {branch:"sengn2", group:"b3"},
+      "39": {branch:"sengn2", group:"b3"},
+      "40": {branch:"sengn2", group:"b3"},
+      "41": {branch:"sengn2", group:"b3"},
+      "42": {branch:"sengn2", group:"b3"},
+    },
+    "7": {
+      "1": {branch:"sengn2", group:"b4"},
+      "2": {branch:"sengn2", group:"b4"},
+      "3": {branch:"sengn2", group:"b4"},
+      "4": {branch:"sengn2", group:"b4"},
+      "5": {branch:"sengn2", group:"b4"},
+      "8": {branch:"sengn2", group:"b4"},
+      "9": {branch:"sengn2", group:"b4"},
+      "10": {branch:"sengn2", group:"b4"},
+    },
+    "8": {
+      "1": {branch:"sengn2", group:"b4"},
+      "3": {branch:"sengn2", group:"b4"},
+      "7": {branch:"sengn2", group:"b4"},
+      "8": {branch:"sengn2", group:"b4"},
+      "9": {branch:"sengn2", group:"b4"},
+      "10": {branch:"sengn2", group:"b4"},
+      "11": {branch:"sengn2", group:"b4"},
+      "12": {branch:"sengn2", group:"b4"},
+      "14": {branch:"sengn2", group:"b4"},
+      "15": {branch:"sengn2", group:"b4"},
+      "17": {branch:"sengn2", group:"b4"},
+      "18": {branch:"sengn2", group:"b4"},
+      "20": {branch:"sengn2", group:"b4"},
+      "25": {branch:"sengn2", group:"b4"},
+      "26": {branch:"sengn2", group:"b4"},
+      "28": {branch:"sengn2", group:"b4"},
+    },
+    "10": {
+      "2": {branch:"sengn2", group:"b5"},
+      "3": {branch:"sengn2", group:"b5"},
+      "6": {branch:"sengn2", group:"b5"},
+      "7": {branch:"sengn2", group:"b5"},
+      "8": {branch:"sengn2", group:"b5"},
+      "10": {branch:"sengn2", group:"b5"},
+      "11": {branch:"sengn2", group:"b5"},
+      "12": {branch:"sengn2", group:"b5"},
+      "13": {branch:"sengn2", group:"b5"},
+      "14": {branch:"sengn2", group:"b5"},
+      "15": {branch:"sengn2", group:"b5"},
+      "16": {branch:"sengn2", group:"b5"},
+      "17": {branch:"sengn2", group:"b5"},
+      "19": {branch:"sengn2", group:"b5"},
+      "20": {branch:"sengn2", group:"b5"},
+      "21": {branch:"sengn2", group:"b5"},
+      "22": {branch:"sengn2", group:"b5"},
+      "24": {branch:"sengn2", group:"b5"},
+      "25": {branch:"sengn2", group:"b5"},
+      "26": {branch:"sengn2", group:"b5"},
+      "27": {branch:"sengn2", group:"b5"},
+      "28": {branch:"sengn2", group:"b5"},
+      "29": {branch:"sengn2", group:"b5"},
+      "30": {branch:"sengn2", group:"b5"},
+    },
+    "11": {
+      "2": {branch:"sengn1", group:"b4"},
+      "3": {branch:"sengn1", group:"b4"},
+      "4": {branch:"sengn1", group:"b4"},
+      "5": {branch:"sengn1", group:"b4"},
+      "7": {branch:"sengn1", group:"b4"},
+      "8": {branch:"sengn1", group:"b4"},
+      "9": {branch:"sengn1", group:"b4"},
+      "10": {branch:"sengn1", group:"b4"},
+      "11": {branch:"sengn1", group:"b4"},
+      "13": {branch:"sengn1", group:"b4"},
+      "14": {branch:"sengn1", group:"b4"},
+      "16": {branch:"sengn1", group:"b4"},
+      "19": {branch:"sengn1", group:"b4"},
+      "20": {branch:"sengn1", group:"b4"},
+      "21": {branch:"sengn1", group:"b4"},
+      "22": {branch:"sengn1", group:"b4"},
+      "23": {branch:"sengn1", group:"b4"},
+      "24": {branch:"sengn1", group:"b4"},
+      "25": {branch:"sengn1", group:"b4"},
+    },
+    "12": {
+      "4": {branch:"sengn1", group:"b4"},
+      "7": {branch:"sengn1", group:"b4"},
+      "10": {branch:"sengn1", group:"b4"},
+      "11": {branch:"sengn1", group:"b4"},
+      "12": {branch:"sengn1", group:"b4"},
+      "13": {branch:"sengn1", group:"b4"},
+      "14": {branch:"sengn1", group:"b4"},
+      "15": {branch:"sengn1", group:"b4"},
+      "16": {branch:"sengn1", group:"b4"},
+      "18": {branch:"sengn1", group:"b4"},
+      "19": {branch:"sengn1", group:"b4"},
+      "20": {branch:"sengn1", group:"b4"},
+      "22": {branch:"sengn1", group:"b4"},
+      "23": {branch:"sengn1", group:"b4"},
+    },
+    "13": {
+      "6": {branch:"shimo2", group:"b5"},
+      "9": {branch:"shimo2", group:"b5"},
+      "10": {branch:"shimo2", group:"b5"},
+      "11": {branch:"shimo2", group:"b5"},
+      "13": {branch:"shimo2", group:"b5"},
+      "15": {branch:"shimo2", group:"b5"},
+      "16": {branch:"shimo2", group:"b5"},
+      "17": {branch:"shimo2", group:"b5"},
+    },
+    "14": {
+      "2": {branch:"shimo2", group:"b5"},
+      "3": {branch:"shimo2", group:"b5"},
+      "4": {branch:"shimo2", group:"b5"},
+      "5": {branch:"shimo2", group:"b5"},
+      "10": {branch:"shimo2", group:"b5"},
+      "11": {branch:"shimo2", group:"b5"},
+      "12": {branch:"shimo2", group:"b5"},
+      "13": {branch:"shimo2", group:"b5"},
+      "14": {branch:"shimo2", group:"b5"},
+      "15": {branch:"shimo2", group:"b5"},
+      "17": {branch:"shimo2", group:"b5"},
+      "19": {branch:"shimo2", group:"b5"},
+      "20": {branch:"shimo2", group:"b5"},
+      "21": {branch:"shimo2", group:"b5"},
+    },
+    "15": {
+      "1": {branch:"sengn1", group:"b3"},
+      "2": {branch:"sengn1", group:"b3"},
+      "3": {branch:"sengn1", group:"b3"},
+      "4": {branch:"sengn1", group:"b3"},
+      "5": {branch:"sengn1", group:"b3"},
+      "6": {branch:"sengn1", group:"b3"},
+      "7": {branch:"sengn1", group:"b3"},
+      "9": {branch:"sengn1", group:"b3"},
+      "10": {branch:"sengn1", group:"b3"},
+      "14": {branch:"sengn1", group:"b3"},
+      "15": {branch:"sengn1", group:"b3"},
+      "16": {branch:"sengn1", group:"b3"},
+      "17": {branch:"sengn1", group:"b3"},
+      "18": {branch:"sengn1", group:"b3"},
+      "19": {branch:"sengn1", group:"b3"},
+    },
+    "16": {
+      "4": {branch:"sengn1", group:"b2"},
+    },
+    "17": {
+      "3": {branch:"sengn1", group:"b2"},
+      "4": {branch:"sengn1", group:"b2"},
+      "5": {branch:"sengn1", group:"b2"},
+      "6": {branch:"sengn1", group:"b2"},
+      "7": {branch:"sengn1", group:"b2"},
+      "8": {branch:"sengn1", group:"b2"},
+      "10": {branch:"sengn1", group:"b2"},
+      "12": {branch:"sengn1", group:"b2"},
+      "13": {branch:"sengn1", group:"b2"},
+      "17": {branch:"sengn1", group:"b2"},
+      "19": {branch:"sengn1", group:"b2"},
+      "21": {branch:"sengn1", group:"b2"},
+    },
+    "18": {
+      "5": {branch:"sengn1", group:"b2"},
+      "6": {branch:"sengn1", group:"b2"},
+      "7": {branch:"sengn1", group:"b2"},
+      "8": {branch:"sengn1", group:"b2"},
+      "9": {branch:"sengn1", group:"b2"},
+    },
+    "19": {
+      "1": {branch:"sengn1", group:"b2"},
+      "2": {branch:"sengn1", group:"b2"},
+      "4": {branch:"sengn1", group:"b2"},
+      "6": {branch:"sengn1", group:"b2"},
+      "8": {branch:"sengn1", group:"b2"},
+      "9": {branch:"sengn1", group:"b2"},
+      "10": {branch:"sengn1", group:"b2"},
+      "11": {branch:"sengn1", group:"b2"},
+      "12": {branch:"sengn1", group:"b2"},
+      "13": {branch:"sengn1", group:"b2"},
+      "14": {branch:"sengn1", group:"b2"},
+      "15": {branch:"sengn1", group:"b2"},
+      "16": {branch:"sengn1", group:"b2"},
+      "18": {branch:"sengn1", group:"b2"},
+    },
+    "20": {
+      "1": {branch:"shimo2", group:"b4"},
+      "2": {branch:"shimo2", group:"b4"},
+      "3": {branch:"shimo2", group:"b4"},
+      "4": {branch:"shimo2", group:"b4"},
+      "5": {branch:"shimo2", group:"b4"},
+      "6": {branch:"shimo2", group:"b4"},
+      "7": {branch:"shimo2", group:"b4"},
+      "9": {branch:"shimo2", group:"b4"},
+      "10": {branch:"shimo2", group:"b4"},
+      "11": {branch:"shimo2", group:"b4"},
+      "12": {branch:"shimo2", group:"b4"},
+      "13": {branch:"shimo2", group:"b4"},
+      "14": {branch:"shimo2", group:"b4"},
+      "15": {branch:"shimo2", group:"b4"},
+      "16": {branch:"shimo2", group:"b4"},
+      "17": {branch:"shimo2", group:"b4"},
+      "18": {branch:"shimo2", group:"b4"},
+      "19": {branch:"shimo2", group:"b4"},
+    },
+    "21": {
+      "1": {branch:"shimo2", group:"b3"},
+      "2": {branch:"shimo2", group:"b3"},
+      "3": {branch:"shimo2", group:"b3"},
+      "4": {branch:"shimo2", group:"b3"},
+      "5": {branch:"shimo2", group:"b3"},
+      "7": {branch:"shimo2", group:"b3"},
+      "8": {branch:"shimo2", group:"b3"},
+      "9": {branch:"shimo2", group:"b3"},
+      "10": {branch:"shimo2", group:"b3"},
+      "11": {branch:"shimo2", group:"b3"},
+      "12": {branch:"shimo2", group:"b3"},
+      "13": {branch:"shimo2", group:"b3"},
+      "14": {branch:"shimo2", group:"b3"},
+      "15": {branch:"shimo2", group:"b3"},
+      "16": {branch:"shimo2", group:"b3"},
+      "17": {branch:"shimo2", group:"b3"},
+      "18": {branch:"shimo2", group:"b3"},
+      "19": {branch:"shimo2", group:"b3"},
+      "20": {branch:"shimo2", group:"b3"},
+    },
+    "22": {
+      "1": {branch:"shimo2", group:"b2"},
+      "2": {branch:"shimo2", group:"b2"},
+      "4": {branch:"shimo2", group:"b2"},
+      "6": {branch:"shimo2", group:"b2"},
+      "7": {branch:"shimo2", group:"b2"},
+      "8": {branch:"shimo2", group:"b2"},
+      "9": {branch:"shimo2", group:"b2"},
+      "10": {branch:"shimo2", group:"b2"},
+      "11": {branch:"shimo2", group:"b2"},
+      "12": {branch:"shimo2", group:"b2"},
+      "13": {branch:"shimo2", group:"b2"},
+      "14": {branch:"shimo2", group:"b2"},
+      "15": {branch:"shimo2", group:"b2"},
+      "16": {branch:"shimo2", group:"b2"},
+      "17": {branch:"shimo2", group:"b2"},
+      "18": {branch:"shimo2", group:"b2"},
+    },
+    "23": {
+      "1": {branch:"shimo1", group:"b5"},
+      "2": {branch:"shimo1", group:"b5"},
+      "3": {branch:"shimo1", group:"b5"},
+      "4": {branch:"shimo1", group:"b5"},
+      "5": {branch:"shimo1", group:"b5"},
+      "7": {branch:"shimo1", group:"b5"},
+      "8": {branch:"shimo1", group:"b5"},
+      "9": {branch:"shimo1", group:"b5"},
+      "10": {branch:"shimo1", group:"b5"},
+      "11": {branch:"shimo1", group:"b5"},
+      "12": {branch:"shimo1", group:"b5"},
+      "13": {branch:"shimo1", group:"b5"},
+      "14": {branch:"shimo1", group:"b5"},
+      "15": {branch:"shimo1", group:"b5"},
+      "16": {branch:"shimo1", group:"b5"},
+      "17": {branch:"shimo1", group:"b5"},
+      "18": {branch:"shimo1", group:"b5"},
+      "19": {branch:"shimo1", group:"b5"},
+      "20": {branch:"shimo1", group:"b5"},
+    },
+    "24": {
+      "1": {branch:"sengn1", group:"b1"},
+      "3": {branch:"sengn1", group:"b1"},
+      "6": {branch:"sengn1", group:"b1"},
+      "7": {branch:"sengn1", group:"b1"},
+      "8": {branch:"sengn1", group:"b1"},
+      "10": {branch:"sengn1", group:"b1"},
+      "11": {branch:"sengn1", group:"b1"},
+      "12": {branch:"sengn1", group:"b1"},
+      "13": {branch:"sengn1", group:"b1"},
+      "14": {branch:"sengn1", group:"b1"},
+      "15": {branch:"sengn1", group:"b1"},
+      "21": {branch:"sengn1", group:"b1"},
+    },
+    "25": {
+      "1": {branch:"sengn1", group:"b1"},
+      "2": {branch:"sengn1", group:"b1"},
+      "3": {branch:"sengn1", group:"b1"},
+      "4": {branch:"sengn1", group:"b1"},
+      "6": {branch:"sengn1", group:"b1"},
+      "7": {branch:"sengn1", group:"b1"},
+      "8": {branch:"sengn1", group:"b1"},
+      "9": {branch:"sengn1", group:"b1"},
+      "10": {branch:"sengn1", group:"b1"},
+      "11": {branch:"sengn1", group:"b1"},
+      "13": {branch:"sengn1", group:"b1"},
+      "17": {branch:"sengn1", group:"b1"},
+      "23": {branch:"sengn1", group:"b1"},
+      "24": {branch:"sengn1", group:"b1"},
+      "25": {branch:"sengn1", group:"b1"},
+    },
+    "26": {
+      "2": {branch:"shimo1", group:"b2"},
+      "4": {branch:"shimo1", group:"b2"},
+      "5": {branch:"shimo1", group:"b2"},
+      "7": {branch:"shimo1", group:"b2"},
+      "8": {branch:"shimo1", group:"b2"},
+      "11": {branch:"shimo1", group:"b2"},
+      "12": {branch:"shimo1", group:"b2"},
+      "14": {branch:"shimo1", group:"b2"},
+      "15": {branch:"shimo1", group:"b2"},
+      "17": {branch:"shimo1", group:"b2"},
+      "19": {branch:"shimo1", group:"b1"},
+      "26": {branch:"shimo1", group:"b2"},
+      "36": {branch:"shimo1", group:"b3"},
+      "37": {branch:"shimo1", group:"b3"},
+      "40": {branch:"shimo1", group:"b2"},
+      "44": {branch:"shimo1", group:"b2"},
+    },
+    "27": {
+      "1": {branch:"shimo1", group:"b4"},
+      "2": {branch:"shimo1", group:"b4"},
+      "3": {branch:"shimo1", group:"b4"},
+      "5": {branch:"shimo1", group:"b4"},
+      "6": {branch:"shimo1", group:"b4"},
+      "7": {branch:"shimo1", group:"b4"},
+      "8": {branch:"shimo1", group:"b4"},
+      "9": {branch:"shimo1", group:"b4"},
+      "10": {branch:"shimo1", group:"b4"},
+      "11": {branch:"shimo1", group:"b4"},
+      "12": {branch:"shimo1", group:"b4"},
+      "13": {branch:"shimo1", group:"b4"},
+      "16": {branch:"shimo1", group:"b4"},
+      "17": {branch:"shimo1", group:"b4"},
+      "18": {branch:"shimo1", group:"b4"},
+      "19": {branch:"shimo1", group:"b4"},
+      "20": {branch:"shimo1", group:"b4"},
+      "21": {branch:"shimo1", group:"b4"},
+      "22": {branch:"shimo1", group:"b4"},
+      "23": {branch:"shimo1", group:"b4"},
+      "24": {branch:"shimo1", group:"b4"},
+      "25": {branch:"shimo1", group:"b4"},
+      "26": {branch:"shimo1", group:"b4"},
+      "27": {branch:"shimo1", group:"b4"},
+    },
+    "28": {
+      "1": {branch:"shimo1", group:"b3"},
+      "2": {branch:"shimo1", group:"b3"},
+      "4": {branch:"shimo1", group:"b3"},
+      "5": {branch:"shimo1", group:"b3"},
+      "6": {branch:"shimo1", group:"b3"},
+      "7": {branch:"shimo1", group:"b3"},
+      "8": {branch:"shimo1", group:"b3"},
+      "11": {branch:"shimo1", group:"b3"},
+      "13": {branch:"shimo1", group:"b3"},
+      "14": {branch:"shimo1", group:"b3"},
+      "15": {branch:"shimo1", group:"b3"},
+      "16": {branch:"shimo1", group:"b3"},
+      "18": {branch:"shimo1", group:"b3"},
+      "19": {branch:"shimo1", group:"b3"},
+      "20": {branch:"shimo1", group:"b3"},
+    },
+    "29": {
+      "3": {branch:"shimo1", group:"b3"},
+      "4": {branch:"shimo1", group:"b3"},
+      "5": {branch:"shimo1", group:"b3"},
+      "6": {branch:"shimo1", group:"b3"},
+      "7": {branch:"shimo1", group:"b3"},
+    },
+    "31": {
+      "1": {branch:"shimo1", group:"b1"},
+      "3": {branch:"shimo1", group:"b1"},
+      "7": {branch:"shimo1", group:"b1"},
+      "9": {branch:"shimo1", group:"b1"},
+      "11": {branch:"shimo1", group:"b1"},
+      "15": {branch:"shimo1", group:"b1"},
+      "16": {branch:"shimo1", group:"b1"},
+      "17": {branch:"shimo1", group:"b1"},
+      "18": {branch:"shimo1", group:"b1"},
+    },
+    "32": {
+      "3": {branch:"shimo1", group:"b1"},
+    },
+    "33": {
+      "4": {branch:"shimo1", group:"b1"},
+      "8": {branch:"shimo1", group:"b1"},
+      "11": {branch:"shimo1", group:"b1"},
+      "13": {branch:"shimo1", group:"b1"},
+    },
+    "36": {
+      "1": {branch:"shimo1", group:"b1"},
+    },
+    "217": {
+      "6": {branch:"shimo1", group:"b1"},
+      "10": {branch:"shimo1", group:"b1"},
+      "19": {branch:"shimo1", group:"b1"},
+      "21": {branch:"shimo1", group:"b1"},
+      "22": {branch:"shimo1", group:"b1"},
+      "25": {branch:"shimo1", group:"b1"},
+    },
+    "227": {
+      "5": {branch:"shimo1", group:"b1"},
+      "6": {branch:"shimo1", group:"b1"},
+      "7": {branch:"shimo1", group:"b1"},
+      "8": {branch:"shimo1", group:"b1"},
+      "9": {branch:"shimo1", group:"b1"},
+    },
+    "244": {
+      "3": {branch:"shimo1", group:"b2"},
+    },
+    "245": {
+      "1": {branch:"shimo1", group:"b2"},
+    },
+    "247": {
+      "9": {branch:"shimo1", group:"b1"},
+      "10": {branch:"shimo1", group:"b1"},
+      "11": {branch:"shimo1", group:"b1"},
+      "12": {branch:"shimo1", group:"b1"},
+    },
+    "249": {
+      "3": {branch:"shimo1", group:"b1"},
+    },
+    "250": {
+      "－": {branch:"shimo1", group:"b1"},
+    },
+    "255": {
+      "－": {branch:"shimo1", group:"b1"},
+    },
+    "289": {
+      "4": {branch:"shimo1", group:"b1"},
+    },
+    "295": {
+      "－": {branch:"shimo1", group:"b1"},
+    },
+  },
+  "2丁目": {
+    "3": {
+      "4": {branch:"hachi1", group:"b5"},
+      "5": {branch:"hachi1", group:"b5"},
+      "7": {branch:"hachi1", group:"b5"},
+      "11": {branch:"hachi1", group:"b5"},
+      "12": {branch:"hachi1", group:"b5"},
+      "13": {branch:"hachi1", group:"b5"},
+      "14": {branch:"hachi1", group:"b5"},
+      "18": {branch:"hachi1", group:"b5"},
+      "20": {branch:"hachi1", group:"b5"},
+      "21": {branch:"hachi1", group:"b5"},
+      "22": {branch:"hachi1", group:"b5"},
+      "25": {branch:"hachi1", group:"b5"},
+      "27": {branch:"hachi1", group:"b5"},
+      "28": {branch:"hachi1", group:"b5"},
+    },
+    "4": {
+      "2": {branch:"hachi1", group:"b4"},
+      "3": {branch:"hachi1", group:"b4"},
+      "6": {branch:"hachi1", group:"b4"},
+      "7": {branch:"hachi1", group:"b4"},
+      "8": {branch:"hachi1", group:"b4"},
+      "11": {branch:"hachi1", group:"b4"},
+      "12": {branch:"hachi1", group:"b4"},
+      "13": {branch:"hachi1", group:"b4"},
+      "15": {branch:"hachi1", group:"b4"},
+      "16": {branch:"hachi1", group:"b4"},
+      "17": {branch:"hachi1", group:"b4"},
+      "19": {branch:"hachi1", group:"b4"},
+      "20": {branch:"hachi1", group:"b4"},
+      "21": {branch:"hachi1", group:"b4"},
+      "22": {branch:"hachi1", group:"b4"},
+    },
+    "5": {
+      "1": {branch:"hachi1", group:"b4"},
+      "2": {branch:"hachi1", group:"b4"},
+      "3": {branch:"hachi1", group:"b4"},
+      "4": {branch:"hachi1", group:"b3"},
+      "5": {branch:"hachi1", group:"b3"},
+      "6": {branch:"hachi1", group:"b3"},
+      "7": {branch:"hachi1", group:"b3"},
+      "8": {branch:"hachi1", group:"b3"},
+      "9": {branch:"hachi1", group:"b3"},
+      "12": {branch:"hachi1", group:"b2"},
+      "15": {branch:"hachi1", group:"b2"},
+      "16": {branch:"hachi1", group:"b2"},
+      "17": {branch:"hachi1", group:"b2"},
+      "18": {branch:"hachi1", group:"b2"},
+      "19": {branch:"hachi1", group:"b2"},
+      "20": {branch:"hachi1", group:"b2"},
+      "23": {branch:"hachi1", group:"b2"},
+      "38": {branch:"hachi1", group:"b1"},
+      "39": {branch:"hachi1", group:"b1"},
+      "40": {branch:"hachi1", group:"b1"},
+      "41": {branch:"hachi1", group:"b1"},
+      "54": {branch:"hachi1", group:"b2"},
+      "56": {branch:"hachi1", group:"b2"},
+      "59": {branch:"hachi1", group:"b2"},
+      "60": {branch:"hachi1", group:"b2"},
+      "61": {branch:"hachi1", group:"b2"},
+      "62": {branch:"hachi1", group:"b2"},
+      "63": {branch:"hachi1", group:"b1"},
+      "65": {branch:"hachi1", group:"b1"},
+      "66": {branch:"hachi1", group:"b1"},
+      "67": {branch:"hachi1", group:"b1"},
+      "68": {branch:"hachi1", group:"b1"},
+      "69": {branch:"hachi1", group:"b1"},
+      "71": {branch:"hachi1", group:"b1"},
+      "74": {branch:"hachi1", group:"b1"},
+      "95": {branch:"hachi1", group:"b1"},
+      "96": {branch:"hachi1", group:"b1"},
+      "97": {branch:"hachi1", group:"b1"},
+      "99": {branch:"hachi1", group:"b1"},
+      "102": {branch:"hachi1", group:"b1"},
+      "108": {branch:"hachi1", group:"b2"},
+    },
+    "6": {
+      "1": {branch:"hachi1", group:"b3"},
+      "2": {branch:"hachi1", group:"b3"},
+      "3": {branch:"hachi1", group:"b3"},
+      "4": {branch:"hachi1", group:"b3"},
+      "5": {branch:"hachi1", group:"b3"},
+      "6": {branch:"hachi1", group:"b3"},
+      "7": {branch:"hachi1", group:"b3"},
+      "8": {branch:"hachi1", group:"b3"},
+      "9": {branch:"hachi1", group:"b3"},
+      "10": {branch:"hachi1", group:"b3"},
+      "11": {branch:"hachi1", group:"b3"},
+      "12": {branch:"hachi1", group:"b3"},
+      "13": {branch:"hachi1", group:"b3"},
+    },
+    "7": {
+      "2": {branch:"hachi1", group:"b6"},
+      "3": {branch:"hachi1", group:"b6"},
+      "6": {branch:"hachi2", group:"b4"},
+      "7": {branch:"hachi1", group:"b6"},
+      "8": {branch:"hachi1", group:"b6"},
+      "9": {branch:"hachi1", group:"b6"},
+      "10": {branch:"hachi1", group:"b6"},
+      "11": {branch:"hachi1", group:"b6"},
+      "13": {branch:"hachi1", group:"b6"},
+      "15": {branch:"hachi1", group:"b6"},
+      "16": {branch:"hachi1", group:"b6"},
+      "17": {branch:"hachi1", group:"b6"},
+      "18": {branch:"hachi1", group:"b6"},
+      "19": {branch:"hachi1", group:"b6"},
+      "21": {branch:"hachi1", group:"b6"},
+      "22": {branch:"hachi1", group:"b6"},
+      "23": {branch:"hachi1", group:"b6"},
+      "24": {branch:"hachi1", group:"b6"},
+      "25": {branch:"hachi1", group:"b6"},
+    },
+    "8": {
+      "1": {branch:"hachi2", group:"b4"},
+      "5": {branch:"hachi2", group:"b4"},
+      "9": {branch:"hachi2", group:"b4"},
+      "10": {branch:"hachi2", group:"b4"},
+      "11": {branch:"hachi2", group:"b4"},
+      "12": {branch:"hachi2", group:"b4"},
+      "13": {branch:"hachi2", group:"b4"},
+    },
+    "9": {
+      "2": {branch:"hachi2", group:"b4"},
+      "32": {branch:"hachi2", group:"b4"},
+      "39": {branch:"hachi2", group:"b4"},
+      "41": {branch:"hachi2", group:"b4"},
+      "43": {branch:"hachi2", group:"b4"},
+      "46": {branch:"hachi2", group:"b4"},
+      "47": {branch:"hachi2", group:"b4"},
+      "48": {branch:"hachi2", group:"b4"},
+      "49": {branch:"hachi2", group:"b4"},
+      "52": {branch:"hachi2", group:"b4"},
+      "53": {branch:"hachi2", group:"b4"},
+      "54": {branch:"hachi2", group:"b4"},
+      "55": {branch:"hachi2", group:"b4"},
+      "56": {branch:"hachi2", group:"b4"},
+    },
+    "13": {
+      "1": {branch:"hachi2", group:"b5"},
+      "2": {branch:"hachi2", group:"b5"},
+      "3": {branch:"hachi2", group:"b5"},
+      "4": {branch:"hachi2", group:"b5"},
+      "13": {branch:"hachi2", group:"b5"},
+      "14": {branch:"hachi2", group:"b5"},
+      "15": {branch:"hachi2", group:"b5"},
+      "16": {branch:"hachi2", group:"b5"},
+      "17": {branch:"hachi2", group:"b5"},
+      "19": {branch:"hachi2", group:"b5"},
+      "20": {branch:"hachi2", group:"b5"},
+      "21": {branch:"hachi2", group:"b5"},
+      "23": {branch:"hachi2", group:"b5"},
+      "25": {branch:"hachi2", group:"b5"},
+      "26": {branch:"hachi2", group:"b5"},
+      "27": {branch:"hachi2", group:"b5"},
+    },
+    "14": {
+      "3": {branch:"shimo3", group:"b6"},
+      "4": {branch:"shimo3", group:"b6"},
+      "5": {branch:"shimo3", group:"b6"},
+      "7": {branch:"shimo3", group:"b6"},
+      "9": {branch:"shimo3", group:"b6"},
+      "10": {branch:"shimo3", group:"b6"},
+      "11": {branch:"shimo3", group:"b6"},
+      "12": {branch:"shimo3", group:"b6"},
+      "14": {branch:"shimo3", group:"b6"},
+      "16": {branch:"shimo3", group:"b6"},
+      "18": {branch:"shimo3", group:"b6"},
+    },
+    "15": {
+      "2": {branch:"shimo3", group:"b1"},
+      "3": {branch:"shimo3", group:"b1"},
+      "4": {branch:"shimo3", group:"b1"},
+      "5": {branch:"shimo3", group:"b1"},
+      "7": {branch:"shimo3", group:"b1"},
+      "8": {branch:"shimo3", group:"b1"},
+      "9": {branch:"shimo3", group:"b1"},
+      "10": {branch:"shimo3", group:"b1"},
+      "12": {branch:"shimo3", group:"b1"},
+      "13": {branch:"shimo3", group:"b1"},
+      "14": {branch:"shimo3", group:"b1"},
+      "18": {branch:"shimo3", group:"b1"},
+      "19": {branch:"shimo3", group:"b1"},
+      "20": {branch:"shimo3", group:"b1"},
+      "21": {branch:"shimo3", group:"b1"},
+      "22": {branch:"shimo3", group:"b1"},
+      "23": {branch:"shimo3", group:"b1"},
+      "25": {branch:"shimo3", group:"b1"},
+      "28": {branch:"shimo3", group:"b1"},
+      "30": {branch:"shimo3", group:"b1"},
+      "31": {branch:"shimo3", group:"b1"},
+      "32": {branch:"shimo3", group:"b1"},
+      "35": {branch:"shimo3", group:"b1"},
+      "36": {branch:"shimo3", group:"b1"},
+    },
+    "16": {
+      "1": {branch:"shimo2", group:"b1"},
+      "4": {branch:"shimo2", group:"b1"},
+      "6": {branch:"shimo2", group:"b1"},
+      "7": {branch:"shimo2", group:"b1"},
+      "8": {branch:"shimo2", group:"b1"},
+      "10": {branch:"shimo2", group:"b1"},
+      "11": {branch:"shimo2", group:"b1"},
+      "12": {branch:"shimo2", group:"b1"},
+      "15": {branch:"shimo2", group:"b1"},
+      "16": {branch:"shimo2", group:"b1"},
+      "17": {branch:"shimo2", group:"b1"},
+      "18": {branch:"shimo2", group:"b1"},
+    },
+    "18": {
+      "1": {branch:"shimo3", group:"b3"},
+      "2": {branch:"shimo3", group:"b3"},
+      "3": {branch:"shimo3", group:"b3"},
+      "14": {branch:"shimo3", group:"b3"},
+      "15": {branch:"shimo3", group:"b3"},
+      "16": {branch:"shimo3", group:"b3"},
+      "17": {branch:"shimo3", group:"b3"},
+      "18": {branch:"shimo3", group:"b3"},
+      "19": {branch:"shimo3", group:"b3"},
+      "20": {branch:"shimo3", group:"b3"},
+      "21": {branch:"shimo3", group:"b3"},
+      "22": {branch:"shimo3", group:"b3"},
+      "23": {branch:"shimo3", group:"b3"},
+      "24": {branch:"shimo3", group:"b3"},
+      "25": {branch:"shimo3", group:"b3"},
+      "27": {branch:"shimo3", group:"b3"},
+      "45": {branch:"shimo3", group:"b3"},
+      "59": {branch:"shimo3", group:"b3"},
+    },
+    "19": {
+      "1": {branch:"shimo2", group:"b1"},
+      "2": {branch:"shimo2", group:"b1"},
+      "5": {branch:"shimo2", group:"b1"},
+      "6": {branch:"shimo2", group:"b1"},
+      "18": {branch:"shimo2", group:"b1"},
+      "19": {branch:"shimo2", group:"b1"},
+      "20": {branch:"shimo2", group:"b1"},
+      "21": {branch:"shimo2", group:"b1"},
+      "22": {branch:"shimo2", group:"b1"},
+      "23": {branch:"shimo2", group:"b1"},
+      "24": {branch:"shimo2", group:"b1"},
+      "25": {branch:"shimo2", group:"b1"},
+      "26": {branch:"shimo2", group:"b1"},
+      "27": {branch:"shimo2", group:"b1"},
+      "28": {branch:"shimo2", group:"b1"},
+      "29": {branch:"shimo2", group:"b1"},
+      "30": {branch:"shimo2", group:"b1"},
+      "31": {branch:"shimo2", group:"b1"},
+      "32": {branch:"shimo2", group:"b1"},
+      "33": {branch:"shimo2", group:"b1"},
+      "39": {branch:"shimo2", group:"b1"},
+      "41": {branch:"shimo2", group:"b1"},
+      "42": {branch:"shimo2", group:"b1"},
+      "43": {branch:"shimo2", group:"b1"},
+      "44": {branch:"shimo2", group:"b1"},
+      "46": {branch:"shimo2", group:"b1"},
+    },
+    "20": {
+      "2": {branch:"shimo3", group:"b2"},
+      "8": {branch:"shimo3", group:"b2"},
+      "9": {branch:"shimo3", group:"b2"},
+      "10": {branch:"shimo3", group:"b2"},
+      "11": {branch:"shimo3", group:"b2"},
+      "12": {branch:"shimo3", group:"b2"},
+      "13": {branch:"shimo3", group:"b2"},
+      "15": {branch:"shimo3", group:"b2"},
+      "18": {branch:"shimo3", group:"b2"},
+      "19": {branch:"shimo3", group:"b2"},
+      "22": {branch:"shimo3", group:"b2"},
+      "23": {branch:"shimo3", group:"b2"},
+      "24": {branch:"shimo3", group:"b2"},
+      "26": {branch:"shimo3", group:"b2"},
+      "29": {branch:"shimo3", group:"b2"},
+      "30": {branch:"shimo3", group:"b2"},
+      "34": {branch:"shimo3", group:"b2"},
+      "37": {branch:"shimo3", group:"b2"},
+    },
+    "21": {
+      "1": {branch:"shimo3", group:"b4"},
+      "2": {branch:"shimo3", group:"b4"},
+      "3": {branch:"shimo3", group:"b4"},
+      "4": {branch:"shimo3", group:"b4"},
+      "5": {branch:"shimo3", group:"b4"},
+      "6": {branch:"shimo3", group:"b4"},
+      "7": {branch:"shimo3", group:"b4"},
+      "8": {branch:"shimo3", group:"b4"},
+    },
+    "23": {
+      "1": {branch:"shimo3", group:"b5"},
+      "3": {branch:"shimo3", group:"b4"},
+      "4": {branch:"shimo3", group:"b4"},
+      "6": {branch:"shimo3", group:"b4"},
+      "7": {branch:"shimo3", group:"b4"},
+      "8": {branch:"shimo3", group:"b4"},
+      "9": {branch:"shimo3", group:"b4"},
+      "10": {branch:"shimo3", group:"b4"},
+      "11": {branch:"shimo3", group:"b4"},
+      "12": {branch:"shimo3", group:"b4"},
+      "13": {branch:"shimo3", group:"b4"},
+      "14": {branch:"shimo3", group:"b5"},
+      "15": {branch:"shimo3", group:"b5"},
+      "16": {branch:"shimo3", group:"b5"},
+      "17": {branch:"shimo3", group:"b5"},
+      "18": {branch:"shimo3", group:"b5"},
+      "19": {branch:"shimo3", group:"b5"},
+      "20": {branch:"shimo3", group:"b5"},
+      "21": {branch:"shimo3", group:"b4"},
+      "22": {branch:"shimo3", group:"b5"},
+      "24": {branch:"shimo3", group:"b4"},
+    },
+    "24": {
+      "1": {branch:"shimo3", group:"b5"},
+      "2": {branch:"shimo3", group:"b5"},
+      "3": {branch:"shimo3", group:"b6"},
+      "5": {branch:"shimo3", group:"b6"},
+      "7": {branch:"shimo3", group:"b6"},
+      "8": {branch:"shimo3", group:"b6"},
+      "9": {branch:"shimo3", group:"b5"},
+      "10": {branch:"shimo3", group:"b6"},
+      "11": {branch:"shimo3", group:"b5"},
+      "12": {branch:"shimo3", group:"b5"},
+      "13": {branch:"shimo3", group:"b5"},
+      "14": {branch:"shimo3", group:"b5"},
+      "15": {branch:"shimo3", group:"b5"},
+      "16": {branch:"shimo3", group:"b5"},
+      "17": {branch:"shimo3", group:"b6"},
+      "18": {branch:"shimo3", group:"b6"},
+      "19": {branch:"shimo3", group:"b6"},
+      "20": {branch:"shimo3", group:"b5"},
+      "21": {branch:"shimo3", group:"b5"},
+      "22": {branch:"shimo3", group:"b5"},
+      "23": {branch:"shimo3", group:"b6"},
+      "24": {branch:"shimo3", group:"b6"},
+      "25": {branch:"shimo3", group:"b6"},
+      "26": {branch:"shimo3", group:"b6"},
+    },
+    "25": {
+      "1": {branch:"shimo3", group:"b6"},
+      "5": {branch:"shimo3", group:"b6"},
+      "16": {branch:"shimo3", group:"b4"},
+      "19": {branch:"shimo3", group:"b4"},
+    },
+    "26": {
+      "8": {branch:"hachi1", group:"b6"},
+      "9": {branch:"hachi1", group:"b6"},
+    },
+    "27": {
+      "3": {branch:"kaede", group:"b5"},
+      "6": {branch:"kaede", group:"b5"},
+      "9": {branch:"kaede", group:"b5"},
+      "11": {branch:"kaede", group:"b5"},
+      "13": {branch:"kaede", group:"b5"},
+      "16": {branch:"kaede", group:"b5"},
+      "17": {branch:"kaede", group:"b5"},
+    },
+    "28": {
+      "1": {branch:"kaede", group:"b5"},
+      "2": {branch:"kaede", group:"b5"},
+      "8": {branch:"kaede", group:"b5"},
+      "9": {branch:"kaede", group:"b5"},
+      "10": {branch:"kaede", group:"b5"},
+      "11": {branch:"kaede", group:"b5"},
+      "14": {branch:"kaede", group:"b5"},
+      "17": {branch:"kaede", group:"b5"},
+      "22": {branch:"kaede", group:"b5"},
+      "23": {branch:"kaede", group:"b5"},
+      "24": {branch:"kaede", group:"b5"},
+      "25": {branch:"kaede", group:"b5"},
+      "26": {branch:"kaede", group:"b5"},
+    },
+    "30": {
+      "2": {branch:"kaede", group:"b3"},
+      "3": {branch:"kaede", group:"b3"},
+      "4": {branch:"kaede", group:"b3"},
+      "6": {branch:"kaede", group:"b3"},
+      "7": {branch:"kaede", group:"b3"},
+      "10": {branch:"kaede", group:"b3"},
+      "11": {branch:"kaede", group:"b3"},
+      "12": {branch:"kaede", group:"b3"},
+      "14": {branch:"kaede", group:"b3"},
+      "15": {branch:"kaede", group:"b3"},
+      "16": {branch:"kaede", group:"b3"},
+      "17": {branch:"kaede", group:"b3"},
+    },
+    "31": {
+      "1": {branch:"kaede", group:"b2"},
+      "2": {branch:"kaede", group:"b2"},
+      "3": {branch:"kaede", group:"b2"},
+      "4": {branch:"kaede", group:"b2"},
+      "5": {branch:"kaede", group:"b2"},
+      "6": {branch:"kaede", group:"b2"},
+      "7": {branch:"kaede", group:"b2"},
+      "8": {branch:"kaede", group:"b2"},
+      "9": {branch:"kaede", group:"b2"},
+      "10": {branch:"kaede", group:"b2"},
+      "11": {branch:"kaede", group:"b2"},
+      "12": {branch:"kaede", group:"b2"},
+      "13": {branch:"kaede", group:"b2"},
+      "14": {branch:"kaede", group:"b2"},
+      "15": {branch:"kaede", group:"b2"},
+      "16": {branch:"kaede", group:"b2"},
+      "17": {branch:"kaede", group:"b2"},
+      "18": {branch:"kaede", group:"b2"},
+      "19": {branch:"kaede", group:"b2"},
+      "20": {branch:"kaede", group:"b2"},
+      "22": {branch:"kaede", group:"b2"},
+      "23": {branch:"kaede", group:"b2"},
+      "24": {branch:"kaede", group:"b2"},
+      "25": {branch:"kaede", group:"b2"},
+      "26": {branch:"kaede", group:"b2"},
+      "27": {branch:"kaede", group:"b2"},
+    },
+    "32": {
+      "1": {branch:"kaede", group:"b1"},
+      "3": {branch:"kaede", group:"b1"},
+      "5": {branch:"kaede", group:"b1"},
+      "7": {branch:"kaede", group:"b1"},
+      "9": {branch:"kaede", group:"b1"},
+      "10": {branch:"kaede", group:"b1"},
+      "12": {branch:"kaede", group:"b1"},
+      "13": {branch:"kaede", group:"b1"},
+      "14": {branch:"kaede", group:"b1"},
+      "15": {branch:"kaede", group:"b1"},
+      "16": {branch:"kaede", group:"b1"},
+    },
+    "33": {
+      "1": {branch:"kaede", group:"b3"},
+      "3": {branch:"kaede", group:"b3"},
+      "4": {branch:"kaede", group:"b3"},
+      "5": {branch:"kaede", group:"b3"},
+      "6": {branch:"kaede", group:"b3"},
+      "7": {branch:"kaede", group:"b3"},
+    },
+    "34": {
+      "1": {branch:"kaede", group:"b4"},
+      "2": {branch:"kaede", group:"b4"},
+      "3": {branch:"kaede", group:"b4"},
+      "5": {branch:"kaede", group:"b4"},
+      "6": {branch:"kaede", group:"b4"},
+      "7": {branch:"kaede", group:"b4"},
+      "8": {branch:"kaede", group:"b4"},
+      "9": {branch:"kaede", group:"b4"},
+      "10": {branch:"kaede", group:"b4"},
+      "11": {branch:"kaede", group:"b4"},
+      "12": {branch:"kaede", group:"b4"},
+      "13": {branch:"kaede", group:"b4"},
+      "14": {branch:"kaede", group:"b4"},
+      "15": {branch:"kaede", group:"b4"},
+      "16": {branch:"kaede", group:"b4"},
+      "17": {branch:"kaede", group:"b4"},
+      "18": {branch:"kaede", group:"b4"},
+      "19": {branch:"kaede", group:"b4"},
+      "20": {branch:"kaede", group:"b4"},
+    },
+    "36": {
+      "1": {branch:"shimo3", group:"b4"},
+      "2": {branch:"shimo3", group:"b4"},
+      "8": {branch:"shimo3", group:"b4"},
+    },
+    "1003": {
+      "8": {branch:"kaede", group:"b1"},
+      "9": {branch:"kaede", group:"b1"},
+    },
+    "1054": {
+      "7": {branch:"kaede", group:"b1"},
+      "8": {branch:"kaede", group:"b1"},
+    },
+    "1059": {
+      "7": {branch:"kaede", group:"b1"},
+      "8": {branch:"kaede", group:"b1"},
+      "9": {branch:"kaede", group:"b1"},
+      "10": {branch:"kaede", group:"b1"},
+      "11": {branch:"kaede", group:"b1"},
+      "12": {branch:"kaede", group:"b1"},
+      "13": {branch:"kaede", group:"b1"},
+    },
+  },
+  "3丁目": {
+    "10": {
+      "3": {branch:"hachi2", group:"b2"},
+      "4": {branch:"hachi2", group:"b2"},
+      "5": {branch:"hachi2", group:"b2"},
+      "6": {branch:"hachi2", group:"b2"},
+      "13": {branch:"hachi2", group:"b2"},
+    },
+    "11": {
+      "1": {branch:"hachi2", group:"b3"},
+      "4": {branch:"hachi2", group:"b3"},
+      "6": {branch:"hachi2", group:"b3"},
+      "7": {branch:"hachi2", group:"b3"},
+      "8": {branch:"hachi2", group:"b3"},
+      "9": {branch:"hachi2", group:"b3"},
+      "10": {branch:"hachi2", group:"b3"},
+      "11": {branch:"hachi2", group:"b3"},
+      "12": {branch:"hachi2", group:"b3"},
+      "13": {branch:"hachi2", group:"b3"},
+      "16": {branch:"hachi2", group:"b3"},
+      "17": {branch:"hachi2", group:"b3"},
+      "20": {branch:"hachi2", group:"b3"},
+      "21": {branch:"hachi2", group:"b3"},
+      "22": {branch:"hachi2", group:"b3"},
+      "23": {branch:"hachi2", group:"b3"},
+      "24": {branch:"hachi2", group:"b3"},
+    },
+    "12": {
+      "1": {branch:"hachi2", group:"b2"},
+      "2": {branch:"hachi2", group:"b2"},
+      "4": {branch:"hachi2", group:"b2"},
+      "5": {branch:"hachi2", group:"b2"},
+      "7": {branch:"hachi2", group:"b2"},
+      "9": {branch:"hachi2", group:"b2"},
+      "10": {branch:"hachi2", group:"b2"},
+      "11": {branch:"hachi2", group:"b2"},
+      "12": {branch:"hachi2", group:"b2"},
+      "13": {branch:"hachi2", group:"b2"},
+      "14": {branch:"hachi2", group:"b2"},
+      "16": {branch:"hachi2", group:"b2"},
+      "18": {branch:"hachi2", group:"b2"},
+      "19": {branch:"hachi2", group:"b2"},
+      "20": {branch:"hachi2", group:"b2"},
+      "21": {branch:"hachi2", group:"b2"},
+      "23": {branch:"hachi2", group:"b2"},
+      "24": {branch:"hachi2", group:"b2"},
+      "25": {branch:"hachi2", group:"b2"},
+      "26": {branch:"hachi2", group:"b2"},
+      "27": {branch:"hachi2", group:"b2"},
+      "31": {branch:"hachi2", group:"b2"},
+      "32": {branch:"hachi2", group:"b2"},
+    },
+    "13": {
+      "2": {branch:"hachi2", group:"b1"},
+      "3": {branch:"hachi2", group:"b1"},
+      "4": {branch:"hachi2", group:"b1"},
+      "5": {branch:"hachi2", group:"b1"},
+      "7": {branch:"hachi2", group:"b1"},
+      "8": {branch:"hachi2", group:"b1"},
+      "10": {branch:"hachi2", group:"b1"},
+      "11": {branch:"hachi2", group:"b1"},
+      "12": {branch:"hachi2", group:"b1"},
+      "14": {branch:"hachi2", group:"b1"},
+      "15": {branch:"hachi2", group:"b1"},
+      "16": {branch:"hachi2", group:"b1"},
+      "19": {branch:"hachi2", group:"b1"},
+      "20": {branch:"hachi2", group:"b1"},
+      "21": {branch:"hachi2", group:"b1"},
+      "23": {branch:"hachi2", group:"b1"},
+      "24": {branch:"hachi2", group:"b1"},
+      "25": {branch:"hachi2", group:"b1"},
+      "26": {branch:"hachi2", group:"b1"},
+      "27": {branch:"hachi2", group:"b1"},
+    },
+  },
+  "4丁目": {
+    "2": {
+      "6": {branch:"yanagi3", group:"b5"},
+      "7": {branch:"yanagi3", group:"b5"},
+      "10": {branch:"yanagi3", group:"b5"},
+      "11": {branch:"yanagi3", group:"b5"},
+      "13": {branch:"yanagi3", group:"b5"},
+      "17": {branch:"yanagi3", group:"b5"},
+      "19": {branch:"yanagi3", group:"b5"},
+      "20": {branch:"yanagi3", group:"b5"},
+      "25": {branch:"yanagi3", group:"b5"},
+      "26": {branch:"yanagi3", group:"b5"},
+      "27": {branch:"yanagi3", group:"b5"},
+      "28": {branch:"yanagi3", group:"b5"},
+      "29": {branch:"yanagi3", group:"b5"},
+      "31": {branch:"yanagi3", group:"b5"},
+      "32": {branch:"yanagi3", group:"b5"},
+      "46": {branch:"yanagi3", group:"b5"},
+    },
+    "3": {
+      "1": {branch:"yanagi3", group:"b3"},
+      "5": {branch:"yanagi3", group:"b3"},
+      "6": {branch:"yanagi3", group:"b3"},
+      "7": {branch:"yanagi3", group:"b3"},
+      "9": {branch:"yanagi3", group:"b2"},
+      "10": {branch:"yanagi3", group:"b2"},
+      "11": {branch:"yanagi3", group:"b3"},
+      "12": {branch:"yanagi3", group:"b3"},
+      "13": {branch:"yanagi3", group:"b3"},
+      "15": {branch:"yanagi3", group:"b3"},
+      "17": {branch:"yanagi3", group:"b3"},
+      "18": {branch:"yanagi3", group:"b3"},
+      "20": {branch:"yanagi3", group:"b3"},
+      "21": {branch:"yanagi3", group:"b3"},
+      "22": {branch:"yanagi3", group:"b3"},
+      "24": {branch:"yanagi3", group:"b3"},
+      "28": {branch:"yanagi3", group:"b3"},
+      "29": {branch:"yanagi3", group:"b3"},
+      "30": {branch:"yanagi3", group:"b3"},
+      "31": {branch:"yanagi3", group:"b3"},
+      "32": {branch:"yanagi3", group:"b3"},
+      "48": {branch:"yanagi3", group:"b3"},
+      "49": {branch:"yanagi3", group:"b3"},
+      "53": {branch:"yanagi3", group:"b3"},
+      "54": {branch:"yanagi3", group:"b3"},
+    },
+    "4": {
+      "2": {branch:"yanagi3", group:"b4"},
+      "3": {branch:"yanagi3", group:"b4"},
+      "5": {branch:"yanagi3", group:"b4"},
+      "8": {branch:"yanagi3", group:"b4"},
+      "13": {branch:"yanagi3", group:"b4"},
+      "16": {branch:"yanagi3", group:"b4"},
+      "17": {branch:"yanagi3", group:"b4"},
+      "19": {branch:"yanagi3", group:"b4"},
+      "20": {branch:"yanagi3", group:"b4"},
+      "21": {branch:"yanagi3", group:"b4"},
+      "22": {branch:"yanagi3", group:"b4"},
+      "23": {branch:"yanagi3", group:"b4"},
+      "24": {branch:"yanagi3", group:"b4"},
+      "25": {branch:"yanagi3", group:"b4"},
+      "26": {branch:"yanagi3", group:"b4"},
+      "27": {branch:"yanagi3", group:"b4"},
+      "31": {branch:"yanagi3", group:"b4"},
+      "32": {branch:"yanagi3", group:"b4"},
+      "34": {branch:"yanagi3", group:"b4"},
+      "36": {branch:"yanagi3", group:"b4"},
+      "38": {branch:"yanagi3", group:"b4"},
+      "40": {branch:"yanagi3", group:"b4"},
+      "41": {branch:"yanagi3", group:"b4"},
+      "42": {branch:"yanagi3", group:"b4"},
+      "43": {branch:"yanagi3", group:"b4"},
+      "44": {branch:"yanagi3", group:"b4"},
+    },
+    "5": {
+      "6": {branch:"yanagi2", group:"b4"},
+      "7": {branch:"yanagi2", group:"b4"},
+      "8": {branch:"yanagi2", group:"b4"},
+      "9": {branch:"yanagi2", group:"b4"},
+      "10": {branch:"yanagi2", group:"b4"},
+      "11": {branch:"yanagi2", group:"b4"},
+      "12": {branch:"yanagi2", group:"b4"},
+      "13": {branch:"yanagi2", group:"b4"},
+      "14": {branch:"yanagi2", group:"b4"},
+      "15": {branch:"yanagi2", group:"b4"},
+      "16": {branch:"yanagi2", group:"b4"},
+      "17": {branch:"yanagi2", group:"b4"},
+      "18": {branch:"yanagi2", group:"b4"},
+      "19": {branch:"yanagi2", group:"b4"},
+      "23": {branch:"yanagi2", group:"b4"},
+      "25": {branch:"yanagi2", group:"b4"},
+      "26": {branch:"yanagi2", group:"b4"},
+    },
+    "6": {
+      "1": {branch:"yanagi2", group:"b4"},
+      "3": {branch:"yanagi2", group:"b4"},
+      "4": {branch:"yanagi2", group:"b4"},
+      "5": {branch:"yanagi2", group:"b4"},
+      "6": {branch:"yanagi2", group:"b4"},
+      "7": {branch:"yanagi2", group:"b4"},
+      "8": {branch:"yanagi2", group:"b4"},
+      "10": {branch:"yanagi2", group:"b4"},
+      "11": {branch:"yanagi2", group:"b4"},
+      "12": {branch:"yanagi2", group:"b4"},
+    },
+    "7": {
+      "1": {branch:"yanagi2", group:"b3"},
+      "2": {branch:"yanagi2", group:"b3"},
+      "3": {branch:"yanagi2", group:"b3"},
+      "4": {branch:"yanagi2", group:"b3"},
+      "5": {branch:"yanagi2", group:"b3"},
+      "6": {branch:"yanagi2", group:"b3"},
+      "7": {branch:"yanagi2", group:"b3"},
+      "8": {branch:"yanagi2", group:"b3"},
+      "9": {branch:"yanagi2", group:"b3"},
+      "10": {branch:"yanagi2", group:"b3"},
+      "11": {branch:"yanagi2", group:"b3"},
+      "12": {branch:"yanagi2", group:"b3"},
+      "13": {branch:"yanagi2", group:"b3"},
+      "14": {branch:"yanagi2", group:"b3"},
+      "15": {branch:"yanagi2", group:"b3"},
+      "16": {branch:"yanagi2", group:"b3"},
+      "17": {branch:"yanagi2", group:"b3"},
+      "18": {branch:"yanagi2", group:"b3"},
+      "19": {branch:"yanagi2", group:"b3"},
+      "20": {branch:"yanagi2", group:"b3"},
+      "21": {branch:"yanagi2", group:"b3"},
+      "22": {branch:"yanagi2", group:"b3"},
+      "23": {branch:"yanagi2", group:"b3"},
+      "24": {branch:"yanagi2", group:"b3"},
+    },
+    "8": {
+      "1": {branch:"yanagi2", group:"b2"},
+      "2": {branch:"yanagi2", group:"b2"},
+      "3": {branch:"yanagi2", group:"b2"},
+      "4": {branch:"yanagi2", group:"b2"},
+      "5": {branch:"yanagi2", group:"b2"},
+      "7": {branch:"yanagi2", group:"b2"},
+      "10": {branch:"yanagi2", group:"b2"},
+      "11": {branch:"yanagi2", group:"b2"},
+      "12": {branch:"yanagi2", group:"b2"},
+      "13": {branch:"yanagi2", group:"b2"},
+      "14": {branch:"yanagi2", group:"b2"},
+      "15": {branch:"yanagi2", group:"b2"},
+      "17": {branch:"yanagi2", group:"b2"},
+      "18": {branch:"yanagi2", group:"b2"},
+      "19": {branch:"yanagi2", group:"b2"},
+      "20": {branch:"yanagi2", group:"b2"},
+      "21": {branch:"yanagi2", group:"b2"},
+      "22": {branch:"yanagi2", group:"b2"},
+      "23": {branch:"yanagi2", group:"b2"},
+      "25": {branch:"yanagi2", group:"b2"},
+      "26": {branch:"yanagi2", group:"b2"},
+      "27": {branch:"yanagi2", group:"b2"},
+      "28": {branch:"yanagi2", group:"b2"},
+    },
+    "9": {
+      "5": {branch:"yanagi3", group:"b2"},
+      "6": {branch:"yanagi3", group:"b2"},
+      "7": {branch:"yanagi3", group:"b2"},
+      "9": {branch:"yanagi3", group:"b2"},
+      "11": {branch:"yanagi3", group:"b2"},
+      "13": {branch:"yanagi3", group:"b2"},
+      "14": {branch:"yanagi3", group:"b2"},
+      "15": {branch:"yanagi3", group:"b2"},
+      "20": {branch:"yanagi3", group:"b2"},
+      "22": {branch:"yanagi3", group:"b2"},
+      "44": {branch:"yanagi3", group:"b2"},
+      "46": {branch:"yanagi3", group:"b2"},
+      "47": {branch:"yanagi3", group:"b2"},
+      "48": {branch:"yanagi3", group:"b2"},
+      "51": {branch:"yanagi3", group:"b2"},
+      "52": {branch:"yanagi3", group:"b2"},
+      "53": {branch:"yanagi3", group:"b2"},
+      "54": {branch:"yanagi3", group:"b2"},
+    },
+    "10": {
+      "1": {branch:"yanagi3", group:"b1"},
+      "2": {branch:"yanagi3", group:"b1"},
+      "3": {branch:"yanagi3", group:"b1"},
+      "4": {branch:"yanagi3", group:"b1"},
+      "5": {branch:"yanagi3", group:"b1"},
+      "6": {branch:"yanagi3", group:"b1"},
+      "7": {branch:"yanagi3", group:"b1"},
+      "8": {branch:"yanagi3", group:"b1"},
+      "9": {branch:"yanagi3", group:"b1"},
+      "13": {branch:"yanagi3", group:"b1"},
+      "14": {branch:"yanagi3", group:"b1"},
+      "15": {branch:"yanagi3", group:"b1"},
+      "18": {branch:"yanagi3", group:"b1"},
+      "19": {branch:"yanagi3", group:"b1"},
+      "20": {branch:"yanagi3", group:"b1"},
+      "21": {branch:"yanagi3", group:"b1"},
+      "23": {branch:"yanagi3", group:"b1"},
+      "24": {branch:"yanagi3", group:"b1"},
+    },
+    "11": {
+      "1": {branch:"yanagi2", group:"b1"},
+      "2": {branch:"yanagi2", group:"b1"},
+      "3": {branch:"yanagi2", group:"b1"},
+      "4": {branch:"yanagi2", group:"b1"},
+      "5": {branch:"yanagi2", group:"b1"},
+      "6": {branch:"yanagi2", group:"b1"},
+      "7": {branch:"yanagi2", group:"b1"},
+      "8": {branch:"yanagi2", group:"b1"},
+      "9": {branch:"yanagi2", group:"b1"},
+      "11": {branch:"yanagi2", group:"b1"},
+      "12": {branch:"yanagi2", group:"b1"},
+      "13": {branch:"yanagi2", group:"b1"},
+      "14": {branch:"yanagi2", group:"b1"},
+      "15": {branch:"yanagi2", group:"b1"},
+      "16": {branch:"yanagi2", group:"b1"},
+      "17": {branch:"yanagi2", group:"b1"},
+      "18": {branch:"yanagi2", group:"b1"},
+      "19": {branch:"yanagi2", group:"b1"},
+      "20": {branch:"yanagi2", group:"b1"},
+      "21": {branch:"yanagi2", group:"b1"},
+      "22": {branch:"yanagi2", group:"b1"},
+      "23": {branch:"yanagi2", group:"b1"},
+      "24": {branch:"yanagi2", group:"b1"},
+    },
+    "12": {
+      "1": {branch:"yanagi1", group:"b5"},
+      "2": {branch:"yanagi1", group:"b5"},
+      "3": {branch:"yanagi1", group:"b5"},
+      "4": {branch:"yanagi1", group:"b5"},
+      "5": {branch:"yanagi1", group:"b5"},
+      "6": {branch:"yanagi1", group:"b5"},
+      "7": {branch:"yanagi1", group:"b5"},
+      "8": {branch:"yanagi1", group:"b5"},
+      "9": {branch:"yanagi1", group:"b5"},
+      "10": {branch:"yanagi1", group:"b5"},
+      "11": {branch:"yanagi1", group:"b5"},
+      "12": {branch:"yanagi1", group:"b5"},
+      "13": {branch:"yanagi1", group:"b5"},
+      "14": {branch:"yanagi1", group:"b5"},
+      "15": {branch:"yanagi1", group:"b5"},
+      "17": {branch:"yanagi1", group:"b5"},
+      "19": {branch:"yanagi1", group:"b5"},
+      "20": {branch:"yanagi1", group:"b5"},
+      "21": {branch:"yanagi1", group:"b5"},
+    },
+    "13": {
+      "1": {branch:"yanagi1", group:"b4"},
+      "2": {branch:"yanagi1", group:"b4"},
+      "3": {branch:"yanagi1", group:"b4"},
+      "4": {branch:"yanagi1", group:"b4"},
+      "5": {branch:"yanagi1", group:"b4"},
+      "6": {branch:"yanagi1", group:"b4"},
+      "7": {branch:"yanagi1", group:"b4"},
+      "8": {branch:"yanagi1", group:"b4"},
+      "9": {branch:"yanagi1", group:"b4"},
+      "10": {branch:"yanagi1", group:"b4"},
+      "11": {branch:"yanagi1", group:"b4"},
+      "12": {branch:"yanagi1", group:"b4"},
+      "13": {branch:"yanagi1", group:"b4"},
+      "14": {branch:"yanagi1", group:"b4"},
+      "15": {branch:"yanagi1", group:"b4"},
+    },
+    "14": {
+      "3": {branch:"yanagi1", group:"b3"},
+      "4": {branch:"yanagi1", group:"b3"},
+      "5": {branch:"yanagi1", group:"b3"},
+      "6": {branch:"yanagi1", group:"b3"},
+      "7": {branch:"yanagi1", group:"b3"},
+      "8": {branch:"yanagi1", group:"b3"},
+      "9": {branch:"yanagi1", group:"b3"},
+      "10": {branch:"yanagi1", group:"b3"},
+      "11": {branch:"yanagi1", group:"b3"},
+      "12": {branch:"yanagi1", group:"b3"},
+      "15": {branch:"yanagi1", group:"b3"},
+      "17": {branch:"yanagi1", group:"b3"},
+      "20": {branch:"yanagi1", group:"b3"},
+      "21": {branch:"yanagi1", group:"b3"},
+      "22": {branch:"yanagi1", group:"b3"},
+      "24": {branch:"yanagi1", group:"b3"},
+    },
+    "15": {
+      "1": {branch:"yanagi1", group:"b1"},
+      "2": {branch:"yanagi1", group:"b1"},
+      "3": {branch:"yanagi1", group:"b1"},
+      "5": {branch:"yanagi1", group:"b1"},
+      "9": {branch:"yanagi1", group:"b1"},
+      "10": {branch:"yanagi1", group:"b1"},
+      "15": {branch:"yanagi1", group:"b1"},
+      "16": {branch:"yanagi1", group:"b1"},
+      "17": {branch:"yanagi1", group:"b1"},
+    },
+    "16": {
+      "1": {branch:"yanagi1", group:"b1"},
+      "5": {branch:"yanagi1", group:"b1"},
+      "9": {branch:"yanagi1", group:"b1"},
+      "10": {branch:"yanagi1", group:"b1"},
+      "13": {branch:"yanagi1", group:"b1"},
+    },
+    "17": {
+      "1": {branch:"yanagi1", group:"b1"},
+      "4": {branch:"yanagi1", group:"b1"},
+      "6": {branch:"yanagi1", group:"b1"},
+      "7": {branch:"yanagi1", group:"b1"},
+      "8": {branch:"yanagi1", group:"b1"},
+      "12": {branch:"yanagi1", group:"b1"},
+      "15": {branch:"yanagi1", group:"b1"},
+      "16": {branch:"yanagi1", group:"b1"},
+    },
+    "18": {
+      "2": {branch:"yanagi1", group:"b2"},
+      "4": {branch:"yanagi1", group:"b2"},
+      "5": {branch:"yanagi1", group:"b2"},
+      "6": {branch:"yanagi1", group:"b2"},
+      "7": {branch:"yanagi1", group:"b2"},
+      "8": {branch:"yanagi1", group:"b2"},
+      "9": {branch:"yanagi1", group:"b2"},
+      "16": {branch:"yanagi1", group:"b2"},
+      "19": {branch:"yanagi1", group:"b2"},
+      "20": {branch:"yanagi1", group:"b2"},
+      "21": {branch:"yanagi1", group:"b2"},
+    },
+    "19": {
+      "3": {branch:"yanagi1", group:"b2"},
+      "6": {branch:"yanagi1", group:"b2"},
+      "7": {branch:"yanagi1", group:"b2"},
+    },
+    "20": {
+      "1": {branch:"yanagi1", group:"b3"},
+      "4": {branch:"yanagi1", group:"b3"},
+      "5": {branch:"yanagi1", group:"b3"},
+      "6": {branch:"yanagi1", group:"b3"},
+      "7": {branch:"yanagi1", group:"b3"},
+      "8": {branch:"yanagi1", group:"b3"},
+      "9": {branch:"yanagi1", group:"b3"},
+    },
+    "22": {
+      "2": {branch:"yanagi1", group:"b4"},
+      "4": {branch:"yanagi1", group:"b4"},
+      "7": {branch:"yanagi1", group:"b4"},
+    },
+    "72": {
+      "9": {branch:"yanagi3", group:"b5"},
+      "10": {branch:"yanagi3", group:"b5"},
+      "11": {branch:"yanagi3", group:"b5"},
+    },
+  },
+};
+
+/* ===================== 状態 ===================== */
+let state = { branch:null, group:null, heard:null, pay:null, device:null };
+let registrations = [];
+let db = null;
+let usingFirebase = false;
+
+/* ===================== 初期化 ===================== */
+function loadLocal(key, fallback){
+  try{
+    const v = localStorage.getItem(key);
+    return v ? JSON.parse(v) : fallback;
+  }catch(e){ return fallback; }
+}
+function saveLocal(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+}
+
+registrations = loadLocal("kaihi_regs", []);
+
+function init(){
+  renderBranchList();
+  renderHeardGrid();
+  renderPayGrid();
+  renderDeviceGrid();
+  tryConnectFirebase();
+  renderBoard();
+}
+
+/* ===================== 画面遷移 ===================== */
+function goScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("screen-"+name).classList.add("active");
+  if(name==="board") renderBoard();
+  if(name==="settings") { loadFbFormFromStorage(); }
+}
+function startFlow(){
+  state = { branch:null, group:null, heard:null, pay:null, device:null };
+  document.querySelectorAll("#branchList .branch-item").forEach(b=>b.classList.remove("selected"));
+  document.getElementById("branchNext").disabled = true;
+  goScreen("startchoice");
+}
+
+/* ===================== STEP1 支部 ===================== */
+function renderBranchList(){
+  const wrap = document.getElementById("branchList");
+  wrap.innerHTML = "";
+  BRANCHES.forEach((b)=>{
+    const div = document.createElement("div");
+    div.className = "branch-item";
+    div.innerHTML = `<span>${b.icon} ${escapeHtml(b.label)}</span><span class="arrow">›</span>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#branchList .branch-item").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.branch = b.id;
+      state.group = null;
+      document.getElementById("branchNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+function toGroupStep(){
+  renderGroupList();
+  goScreen("group");
+}
+
+/* ===================== STEP2 班 ===================== */
+function renderGroupList(){
+  const branch = BRANCHES.find(x=>x.id===state.branch);
+  document.getElementById("groupHint").textContent = (branch?.label||"") + " の班をタップ";
+  const wrap = document.getElementById("groupList");
+  wrap.innerHTML = "";
+  document.getElementById("groupNext").disabled = true;
+  const groupIds = BRANCH_GROUPS[state.branch] || [];
+  groupIds.forEach(gid=>{
+    const g = GROUPS.find(x=>x.id===gid);
+    if(!g) return;
+    const div = document.createElement("div");
+    div.className = "branch-item";
+    div.innerHTML = `<span>${escapeHtml(g.label)}</span><span class="arrow">✓</span>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#groupList .branch-item").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.group = g.id;
+      document.getElementById("groupNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+
+/* ===================== 住所選択モーダル ===================== */
+let addrState = { chome:null, banchi:null };
+function openAddrModal(){
+  addrState = { chome:null, banchi:null };
+  renderAddrStep();
+  document.getElementById("addrOverlay").classList.add("visible");
+}
+function closeAddrModal(){
+  document.getElementById("addrOverlay").classList.remove("visible");
+}
+function addrBack(){
+  if(addrState.banchi !== null){
+    addrState.banchi = null;
+  } else if(addrState.chome !== null){
+    addrState.chome = null;
+  } else {
+    closeAddrModal();
+    return;
+  }
+  renderAddrStep();
+}
+function renderAddrStep(){
+  const titleEl = document.getElementById("addrTitle");
+  const breadcrumbEl = document.getElementById("addrBreadcrumb");
+  const listEl = document.getElementById("addrList");
+  const backBtn = document.getElementById("addrBackBtn");
+  listEl.innerHTML = "";
+
+  // STEP1: 丁目選択
+  if(addrState.chome === null){
+    titleEl.textContent = "丁目を選んでください";
+    breadcrumbEl.textContent = "";
+    backBtn.style.visibility = "hidden";
+    Object.keys(ADDRESS_MAP).forEach(chome=>{
+      const btn = document.createElement("button");
+      btn.className = "addr-btn";
+      btn.innerHTML = `<span class="addr-btn-label">小川${escapeHtml(chome)}</span>`;
+      btn.onclick = ()=>{ addrState.chome = chome; renderAddrStep(); };
+      listEl.appendChild(btn);
+    });
+    return;
+  }
+  backBtn.style.visibility = "visible";
+
+  // STEP2: 番地選択
+  if(addrState.banchi === null){
+    titleEl.textContent = "番地を選んでください";
+    breadcrumbEl.innerHTML = `<span>小川${escapeHtml(addrState.chome)}</span>`;
+    const banchiMap = ADDRESS_MAP[addrState.chome];
+    if(!banchiMap || Object.keys(banchiMap).length===0){
+      listEl.innerHTML = `<div class="addr-not-found">⚠️ この丁目のデータは<br>まだ登録されていません</div>`;
+      return;
+    }
+    const sorted = Object.keys(banchiMap).sort((a,b)=>Number(a)-Number(b));
+    sorted.forEach(banchi=>{
+      const goMap = banchiMap[banchi];
+      const vals = Object.values(goMap);
+      const unique = [...new Set(vals.map(v=>v.branch+"_"+v.group))];
+      const decided = unique.length===1;
+      const btn = document.createElement("button");
+      btn.className = "addr-btn";
+      const goCount = Object.keys(goMap).length;
+      if(decided){
+        const branch = BRANCHES.find(b=>b.id===vals[0].branch);
+        const group = GROUPS.find(g=>g.id===vals[0].group);
+        btn.innerHTML = `
+          <span class="addr-btn-label">${escapeHtml(banchi)}番地</span>
+          <span class="addr-btn-sub">${escapeHtml(branch?.label??"")} ${escapeHtml(group?.label??"")}</span>
+        `;
+        btn.onclick = ()=>applyAddrResult(vals[0]);
+      } else {
+        btn.innerHTML = `
+          <span class="addr-btn-label">${escapeHtml(banchi)}番地</span>
+          <span class="addr-btn-sub">${goCount}件 ▶</span>
+        `;
+        btn.onclick = ()=>{ addrState.banchi = banchi; renderAddrStep(); };
+      }
+      listEl.appendChild(btn);
+    });
+    return;
+  }
+
+  // STEP3: 号選択
+  titleEl.textContent = "号を選んでください";
+  breadcrumbEl.innerHTML = `<span>小川${escapeHtml(addrState.chome)}</span> ＞ <span>${escapeHtml(addrState.banchi)}番地</span>`;
+  const goMap = ADDRESS_MAP[addrState.chome]?.[addrState.banchi];
+  if(!goMap || Object.keys(goMap).length===0){
+    listEl.innerHTML = `<div class="addr-not-found">⚠️ この番地のデータは<br>まだ登録されていません</div>`;
+    return;
+  }
+  const sortedGo = Object.keys(goMap).sort((a,b)=>Number(a)-Number(b));
+  sortedGo.forEach(go=>{
+    const result = goMap[go];
+    const branch = BRANCHES.find(b=>b.id===result.branch);
+    const group = GROUPS.find(g=>g.id===result.group);
+    const btn = document.createElement("button");
+    btn.className = "addr-btn";
+    btn.innerHTML = `
+      <span class="addr-btn-label">${go==="－"?"号なし":escapeHtml(go)+"号"}</span>
+      <span class="addr-btn-sub">${escapeHtml(branch?.label??"")} ${escapeHtml(group?.label??"")}</span>
+    `;
+    btn.onclick = ()=>applyAddrResult(result);
+    listEl.appendChild(btn);
+  });
+}
+function applyAddrResult(result){
+  state.branch = result.branch;
+  state.group = result.group;
+  closeAddrModal();
+  goScreen("heard");
+}
+
+/* ===================== STEP3 何を見てきたか ===================== */
+function renderHeardGrid(){
+  const wrap = document.getElementById("heardGrid");
+  wrap.innerHTML = "";
+  HEARD_OPTIONS.forEach(o=>{
+    const div = document.createElement("div");
+    div.className = "opt-btn";
+    div.innerHTML = `<div class="emoji">${o.emoji}</div><div>${o.label}</div>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#heardGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.heard = o.key;
+      document.getElementById("heardNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+
+/* ===================== STEP4 支払い方法 ===================== */
+function renderPayGrid(){
+  const wrap = document.getElementById("payGrid");
+  wrap.innerHTML = "";
+  PAY_OPTIONS.forEach(o=>{
+    const div = document.createElement("div");
+    div.className = "opt-btn";
+    div.innerHTML = `<div class="emoji">${o.emoji}</div><div>${o.label}</div>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#payGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.pay = o.key;
+      document.getElementById("payNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+
+/* ===================== STEP5 端末 ===================== */
+function renderDeviceGrid(){
+  const wrap = document.getElementById("deviceGrid");
+  wrap.innerHTML = "";
+  DEVICE_OPTIONS.forEach(o=>{
+    const div = document.createElement("div");
+    div.className = "opt-btn";
+    div.innerHTML = `<div class="emoji">${o.emoji}</div><div>${o.label}</div>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#deviceGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.device = o.key;
+      document.getElementById("deviceNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+
+/* ===================== 確認画面 ===================== */
+function goScreenConfirmPrep(){}
+document.addEventListener("DOMContentLoaded", ()=>{});
+function renderConfirm(){
+  const heardLabel = HEARD_OPTIONS.find(h=>h.key===state.heard)?.label || "";
+  const payLabel = PAY_OPTIONS.find(p=>p.key===state.pay)?.label || "";
+  const devLabel = DEVICE_OPTIONS.find(d=>d.key===state.device)?.label || "";
+  document.getElementById("confirmSummary").innerHTML = `
+    <div class="summary-row"><div class="k">支部</div><div class="v">${escapeHtml(BRANCHES.find(b=>b.id===state.branch)?.label||"")}</div></div>
+    <div class="summary-row"><div class="k">班</div><div class="v">${escapeHtml(GROUPS.find(g=>g.id===state.group)?.label||"")}</div></div>
+    <div class="summary-row"><div class="k">何を見て</div><div class="v">${escapeHtml(heardLabel)}</div></div>
+    <div class="summary-row"><div class="k">支払い方法</div><div class="v">${escapeHtml(payLabel)}</div></div>
+    <div class="summary-row"><div class="k">登録端末</div><div class="v">${escapeHtml(devLabel)}</div></div>
+  `;
+}
+const _origGoScreen = goScreen;
+goScreen = function(name){
+  _origGoScreen(name);
+  if(name==="confirm") renderConfirm();
+};
+
+/* ===================== 登録処理 ===================== */
+function submitRegistration(){
+  const rec = {
+    branch: state.branch,
+    group: state.group,
+    heard: state.heard,
+    pay: state.pay,
+    device: state.device,
+    laneKey: state.pay + "_" + state.device,
+    ts: Date.now(),
+  };
+  addRegistration(rec).then(()=>{
+    showResult(rec);
+  });
+}
+
+function showResult(rec){
+  const lane = laneLabel(rec.pay, rec.device);
+  document.getElementById("resultLane").innerHTML = `
+    <div class="label">ご案内する列は</div>
+    <div class="lane">${lane.name}</div>
+    <div class="desc">${escapeHtml(lane.desc)}</div>
+  `;
+  const waitCount = registrations.filter(r=>r.laneKey===rec.laneKey).length;
+  document.getElementById("resultWait").textContent =
+    `現在 ${lane.name} には ${waitCount} 名が登録されています。スタッフの案内に従ってお並びください。`;
+  goScreen("done");
+}
+
+/* ===================== 受付状況ボード ===================== */
+function renderBoard(){
+  const board = document.getElementById("laneBoard");
+  board.innerHTML = "";
+  Object.keys(LANE_NAMES).forEach(key=>{
+    const [pay, device] = key.split("_");
+    const lane = laneLabel(pay, device);
+    const count = registrations.filter(r=>r.laneKey===key).length;
+    const div = document.createElement("div");
+    div.className = "lane-card";
+    div.innerHTML = `<div class="lname">${lane.name}<br>${escapeHtml(lane.desc)}</div><div class="lcount">${count}</div>`;
+    board.appendChild(div);
+  });
+  const tbl = document.getElementById("regTable");
+  const rows = registrations.slice().sort((a,b)=>b.ts-a.ts).slice(0,50);
+  let html = "<tr><th>時刻</th><th>支部/班</th><th>列</th><th>きっかけ</th></tr>";
+  rows.forEach(r=>{
+    const lane = laneLabel(r.pay, r.device);
+    const t = new Date(r.ts);
+    const tstr = t.getHours().toString().padStart(2,"0")+":"+t.getMinutes().toString().padStart(2,"0");
+    const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || "";
+    const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
+    const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
+    html += `<tr><td>${tstr}</td><td>${escapeHtml(bLabel)}/${escapeHtml(gLabel)}</td><td>${lane.name}</td><td>${escapeHtml(heardLabel)}</td></tr>`;
+  });
+  tbl.innerHTML = html;
+}
+function confirmReset(){
+  if(confirm("受付データをすべて削除します。よろしいですか？")){
+    resetRegistrations();
+  }
+}
+
+/* ===================== Firebase 連携 ===================== */
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCMejR5JNZ9YE1-NFnRa1HGVzZXm4DZGl0",
+  authDomain: "ogawa-enquete.firebaseapp.com",
+  databaseURL: "https://ogawa-enquete-default-rtdb.firebaseio.com",
+  projectId: "ogawa-enquete",
+  storageBucket: "ogawa-enquete.firebasestorage.app",
+  messagingSenderId: "849455476783",
+  appId: "1:849455476783:web:bb7293da83f176167e56da"
+};
+function loadFbFormFromStorage(){
+  const cfg = loadLocal("kaihi_fb_config", null) || DEFAULT_FIREBASE_CONFIG;
+  if(cfg){
+    document.getElementById("fbApiKey").value = cfg.apiKey||"";
+    document.getElementById("fbAuthDomain").value = cfg.authDomain||"";
+    document.getElementById("fbProjectId").value = cfg.projectId||"";
+    document.getElementById("fbStorageBucket").value = cfg.storageBucket||"";
+    document.getElementById("fbMessagingSenderId").value = cfg.messagingSenderId||"";
+    document.getElementById("fbAppId").value = cfg.appId||"";
+  }
+  updateConnStatus();
+}
+function saveFirebaseConfig(){
+  const cfg = {
+    apiKey: document.getElementById("fbApiKey").value.trim(),
+    authDomain: document.getElementById("fbAuthDomain").value.trim(),
+    projectId: document.getElementById("fbProjectId").value.trim(),
+    storageBucket: document.getElementById("fbStorageBucket").value.trim(),
+    messagingSenderId: document.getElementById("fbMessagingSenderId").value.trim(),
+    appId: document.getElementById("fbAppId").value.trim(),
+  };
+  if(!cfg.apiKey || !cfg.projectId){
+    alert("apiKey と projectId は必須です");
+    return;
+  }
+  saveLocal("kaihi_fb_config", cfg);
+  tryConnectFirebase(()=>{
+    alert("Firebaseに接続しました。");
+  });
+}
+function clearFirebaseConfig(){
+  localStorage.removeItem("kaihi_fb_config");
+  usingFirebase = false;
+  db = null;
+  updateConnStatus();
+  ["fbApiKey","fbAuthDomain","fbProjectId","fbStorageBucket","fbMessagingSenderId","fbAppId"].forEach(id=>{
+    document.getElementById(id).value = "";
+  });
+}
+function tryConnectFirebase(onSuccess){
+  let cfg = loadLocal("kaihi_fb_config", null);
+  if(!cfg || !cfg.apiKey || !cfg.projectId){
+    cfg = DEFAULT_FIREBASE_CONFIG;
+  }
+  if(!cfg || !cfg.apiKey || !cfg.projectId){
+    usingFirebase = false;
+    updateConnStatus();
+    return;
+  }
+  try{
+    if(!window._fbApp){
+      window._fbApp = firebase.initializeApp(cfg);
+    }
+    db = firebase.firestore();
+    usingFirebase = true;
+    updateConnStatus();
+    // registrations のリアルタイム同期
+    db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
+      .onSnapshot(snap=>{
+        registrations = snap.docs.map(d=>d.data());
+        saveLocal("kaihi_regs", registrations);
+        renderBoard();
+      }, err=>{
+        console.error(err);
+      });
+    if(onSuccess) onSuccess();
+  }catch(e){
+    console.error(e);
+    usingFirebase = false;
+    updateConnStatus();
+    alert("Firebase接続に失敗しました。設定値をご確認ください。");
+  }
+}
+function updateConnStatus(){
+  const dot = document.getElementById("connDot");
+  const text = document.getElementById("connText");
+  const fbStatus = document.getElementById("fbStatus");
+  if(usingFirebase){
+    dot.className = "dot on";
+    text.textContent = "複数端末で同期中";
+    if(fbStatus) fbStatus.textContent = "✅ Firebaseに接続されています";
+  }else{
+    dot.className = "dot off";
+    text.textContent = "端末内保存モード（未同期）";
+    if(fbStatus) fbStatus.textContent = "未接続：この端末だけにデータが保存されます";
+  }
+}
+
+function addRegistration(rec){
+  return new Promise((resolve)=>{
+    if(usingFirebase && db){
+      db.collection("kaihi_registrations").add(rec).then(()=>{
+        resolve();
+      }).catch(err=>{
+        console.error(err);
+        registrations.push(rec);
+        saveLocal("kaihi_regs", registrations);
+        resolve();
+      });
+    } else {
+      registrations.push(rec);
+      saveLocal("kaihi_regs", registrations);
+      resolve();
+    }
+  });
+}
+function resetRegistrations(){
+  if(usingFirebase && db){
+    db.collection("kaihi_registrations").get().then(snap=>{
+      const batchPromises = snap.docs.map(d=>d.ref.delete());
+      Promise.all(batchPromises).then(()=>{
+        registrations = [];
+        saveLocal("kaihi_regs", []);
+        renderBoard();
+      });
+    });
+  } else {
+    registrations = [];
+    saveLocal("kaihi_regs", []);
+    renderBoard();
+  }
+}
+
+/* ===================== ユーティリティ ===================== */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+init();
+</script>
+</body>
+</html>
