@@ -189,7 +189,6 @@
       <div class="btn-grid single" id="resultGrid"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('ticket')">戻る</button>
-        <button class="nav-btn next" id="resultNext" disabled onclick="afterResultNext()">次へ</button>
       </div>
     </section>
 
@@ -200,7 +199,6 @@
       <div class="btn-grid single" id="reasonGrid"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('result')">戻る</button>
-        <button class="nav-btn next" id="reasonNext" disabled onclick="goScreen('satisfaction')">次へ</button>
       </div>
     </section>
 
@@ -211,7 +209,6 @@
       <div class="btn-grid single" id="satisfactionGrid"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="backFromSatisfaction()">戻る</button>
-        <button class="nav-btn next" id="satisfactionNext" disabled onclick="goScreen('confirm')">次へ</button>
       </div>
     </section>
 
@@ -356,10 +353,8 @@ function goScreen(name){
 function resetFlowUI(){
   state = { ticketNumber:null, success:null, reason:null, satisfaction:null };
   document.querySelectorAll(".opt-btn.selected, .ticket-btn.selected").forEach(el=>el.classList.remove("selected"));
-  ["ticketNext","resultNext","reasonNext","satisfactionNext"].forEach(id=>{
-    const btn = document.getElementById(id);
-    if(btn) btn.disabled = true;
-  });
+  const ticketNext = document.getElementById("ticketNext");
+  if(ticketNext) ticketNext.disabled = true;
 }
 function startFlow(){
   resetFlowUI();
@@ -411,7 +406,7 @@ function renderResultGrid(){
       document.querySelectorAll("#resultGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.success = o.key;
-      document.getElementById("resultNext").disabled = false;
+      afterResultNext();
     };
     wrap.appendChild(div);
   });
@@ -437,7 +432,7 @@ function renderReasonGrid(){
       document.querySelectorAll("#reasonGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.reason = o.key;
-      document.getElementById("reasonNext").disabled = false;
+      goScreen("satisfaction");
     };
     wrap.appendChild(div);
   });
@@ -455,7 +450,7 @@ function renderSatisfactionGrid(){
       document.querySelectorAll("#satisfactionGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.satisfaction = o.key;
-      document.getElementById("satisfactionNext").disabled = false;
+      goScreen("confirm");
     };
     wrap.appendChild(div);
   });
