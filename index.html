@@ -248,7 +248,6 @@
       <div class="branch-list" id="branchList"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('startchoice')">戻る</button>
-        <button class="nav-btn next" id="branchNext" disabled onclick="toGroupStep()">次へ</button>
       </div>
     </section>
 
@@ -260,7 +259,6 @@
       <div class="branch-list" id="groupList"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('branch')">戻る</button>
-        <button class="nav-btn next" id="groupNext" disabled onclick="goScreen('heard')">次へ</button>
       </div>
     </section>
 
@@ -285,7 +283,6 @@
       <div class="btn-grid" id="heardGrid"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="backFromHeard()">戻る</button>
-        <button class="nav-btn next" id="heardNext" disabled onclick="goScreen('pay')">次へ</button>
       </div>
     </section>
 
@@ -297,7 +294,6 @@
       <div class="btn-grid single" id="payGrid"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('heard')">戻る</button>
-        <button class="nav-btn next" id="payNext" disabled onclick="goScreen('device')">次へ</button>
       </div>
     </section>
 
@@ -309,7 +305,6 @@
       <div class="btn-grid" id="deviceGrid"></div>
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('pay')">戻る</button>
-        <button class="nav-btn next" id="deviceNext" disabled onclick="goScreen('confirm')">次へ</button>
       </div>
     </section>
 
@@ -338,6 +333,7 @@
     <section class="screen" id="screen-board">
       <div class="big-title">受付状況</div>
       <div class="result-lane" id="waitingSummary" style="margin-bottom:16px;"></div>
+      <button class="small-btn" style="margin-bottom:16px;" onclick="forceRefreshBoard()">最新の状態に更新</button>
 
       <div class="settings-section">
         <h3>ブース数の設定</h3>
@@ -394,6 +390,12 @@ const DEVICE_OPTIONS = [
   {key:"android", label:"Android"},
   {key:"pc", label:"パソコン"},
   {key:"unknown", label:"不明・その他"},
+];
+// 事後アンケート（survey.html）と共通の「できなかった理由」マスタ（CSV出力・取り込みで使用）
+const REASON_OPTIONS = [
+  {key:"info", label:"登録に必要な情報が足りなかった"},
+  {key:"time", label:"時間が足りなかった"},
+  {key:"other", label:"その他"},
 ];
 
 /* 支部一覧（小川自治会） */
@@ -1891,6 +1893,8 @@ function saveLocal(key, val){
 }
 
 registrations = loadLocal("kaihi_regs", []);
+surveyRecords = loadLocal("kaihi_survey_cache", []);
+completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
 
 function init(){
   boothCount = loadLocal("kaihi_booth_count", 1);
@@ -1912,10 +1916,6 @@ function resetFlowUI(){
   state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
   // 支部・班・きっかけ・支払い方法・端末、すべての選択状態をクリア
   document.querySelectorAll(".branch-item.selected, .opt-btn.selected").forEach(el=>el.classList.remove("selected"));
-  ["branchNext","groupNext","heardNext","payNext","deviceNext"].forEach(id=>{
-    const btn = document.getElementById(id);
-    if(btn) btn.disabled = true;
-  });
   document.getElementById("groupList").innerHTML = "";
 }
 function startFlow(){
@@ -1937,7 +1937,7 @@ function renderBranchList(){
       state.branch = b.id;
       state.group = null;
       state.viaAddress = false;
-      document.getElementById("branchNext").disabled = false;
+      toGroupStep();
     };
     wrap.appendChild(div);
   });
@@ -1953,7 +1953,6 @@ function renderGroupList(){
   document.getElementById("groupHint").textContent = (branch?.label||"") + " の班をタップ";
   const wrap = document.getElementById("groupList");
   wrap.innerHTML = "";
-  document.getElementById("groupNext").disabled = state.group ? false : true;
   const groupIds = BRANCH_GROUPS[state.branch] || [];
   groupIds.forEach(gid=>{
     const g = GROUPS.find(x=>x.id===gid);
@@ -1965,7 +1964,7 @@ function renderGroupList(){
       document.querySelectorAll("#groupList .branch-item").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.group = g.id;
-      document.getElementById("groupNext").disabled = false;
+      goScreen("heard");
     };
     wrap.appendChild(div);
   });
@@ -2105,7 +2104,7 @@ function renderHeardGrid(){
       document.querySelectorAll("#heardGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.heard = o.key;
-      document.getElementById("heardNext").disabled = false;
+      goScreen("pay");
     };
     wrap.appendChild(div);
   });
@@ -2123,7 +2122,7 @@ function renderPayGrid(){
       document.querySelectorAll("#payGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.pay = o.key;
-      document.getElementById("payNext").disabled = false;
+      goScreen("device");
     };
     wrap.appendChild(div);
   });
@@ -2141,7 +2140,7 @@ function renderDeviceGrid(){
       document.querySelectorAll("#deviceGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
       div.classList.add("selected");
       state.device = o.key;
-      document.getElementById("deviceNext").disabled = false;
+      goScreen("confirm");
     };
     wrap.appendChild(div);
   });
@@ -2243,6 +2242,26 @@ function finishAndReset(){
 }
 
 /* ===================== 受付状況ボード ===================== */
+function forceRefreshBoard(){
+  if(usingFirebase && db){
+    Promise.all([
+      db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
+      db.collection("kaihi_survey").get(),
+    ]).then(([regSnap, surveySnap])=>{
+      registrations = regSnap.docs.map(d=>d.data());
+      surveyRecords = surveySnap.docs.map(d=>d.data());
+      completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
+      saveLocal("kaihi_regs", registrations);
+      saveLocal("kaihi_survey_cache", surveyRecords);
+      renderBoard();
+    }).catch(err=>{
+      console.error(err);
+      alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
+    });
+  } else {
+    renderBoard();
+  }
+}
 function renderBoard(){
   const waitingCount = computeWaitingCount();
   const estWait = computeEstimatedWaitMinutes();
@@ -2332,15 +2351,23 @@ function exportCSV(){
     alert("出力できる受付データがありません。");
     return;
   }
-  const header = ["整理番号","登録日時","支部","班","何を見て","支払い方法","登録端末","状態"];
+  const header = ["整理番号","受付日時","支部","班","何を見て","支払い方法","登録端末","状態","アンケート回答日時","登録結果","できなかった理由","満足度"];
   const rows = registrations.slice().sort((a,b)=>a.ts-b.ts).map(r=>{
     const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
     const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
     const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || r.heard || "";
     const payLabel = PAY_OPTIONS.find(p=>p.key===r.pay)?.label || r.pay || "";
     const devLabel = DEVICE_OPTIONS.find(d=>d.key===r.device)?.label || r.device || "";
-    const status = completedTicketNumbers.has(r.ticketNumber) ? "完了" : "待ち";
-    return [r.ticketNumber ?? "", formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, status];
+    // 整理番号で受付データと事後アンケートデータを1行にまとめる
+    const survey = surveyRecords.find(s=>s.ticketNumber===r.ticketNumber);
+    const status = survey ? "完了" : "待ち";
+    const surveyDate = survey ? formatDateTime(survey.ts) : "";
+    const resultLabel = survey ? (survey.success ? "できた" : "できなかった") : "";
+    const reasonLabel = (survey && survey.success===false)
+      ? (REASON_OPTIONS.find(x=>x.key===survey.reason)?.label || survey.reason || "")
+      : "";
+    const satisfactionStr = (survey && survey.satisfaction != null) ? String(survey.satisfaction) : "";
+    return [r.ticketNumber ?? "", formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, status, surveyDate, resultLabel, reasonLabel, satisfactionStr];
   });
   const now = new Date();
   const pad = (n)=>String(n).padStart(2,"0");
@@ -2350,13 +2377,39 @@ function exportCSV(){
 
 /* ===================== CSVインポート ===================== */
 function downloadSampleCSV(){
-  const header = ["整理番号","登録日時","支部","班","何を見て","支払い方法","登録端末","状態"];
+  const header = ["整理番号","受付日時","支部","班","何を見て","支払い方法","登録端末","状態","アンケート回答日時","登録結果","できなかった理由","満足度"];
   const now = Date.now();
-  const rows = [
-    [101, formatDateTime(now - 30*60000), BRANCHES[0].label, GROUPS[0].label, HEARD_OPTIONS[0].label, PAY_OPTIONS[0].label, DEVICE_OPTIONS[0].label, "完了"],
-    [102, formatDateTime(now - 20*60000), BRANCHES[1] ? BRANCHES[1].label : BRANCHES[0].label, GROUPS[1] ? GROUPS[1].label : GROUPS[0].label, HEARD_OPTIONS[1].label, PAY_OPTIONS[1] ? PAY_OPTIONS[1].label : PAY_OPTIONS[0].label, DEVICE_OPTIONS[1].label, "待ち"],
-    [103, formatDateTime(now - 10*60000), BRANCHES[2] ? BRANCHES[2].label : BRANCHES[0].label, GROUPS[0].label, HEARD_OPTIONS[2] ? HEARD_OPTIONS[2].label : HEARD_OPTIONS[0].label, PAY_OPTIONS[0].label, DEVICE_OPTIONS[3] ? DEVICE_OPTIONS[3].label : DEVICE_OPTIONS[0].label, "待ち"],
-  ];
+  const totalCount = 20;
+  const completedCount = 12; // 20件中12件は事後アンケート回答済み、8件は待ち中
+  const rows = [];
+  for(let i=0; i<totalCount; i++){
+    const ticketNumber = 101 + i;
+    const branch = BRANCHES[i % BRANCHES.length];
+    const groupIds = BRANCH_GROUPS[branch.id] || [];
+    const group = GROUPS.find(g=>g.id===groupIds[i % groupIds.length]) || GROUPS[0];
+    const heard = HEARD_OPTIONS[i % HEARD_OPTIONS.length];
+    const pay = PAY_OPTIONS[i % PAY_OPTIONS.length];
+    const device = DEVICE_OPTIONS[i % DEVICE_OPTIONS.length];
+    // 受付時刻は8分間隔（古い番号ほど過去）
+    const receivedTs = now - (totalCount - i) * 8 * 60000;
+
+    let status = "待ち", surveyDateStr = "", resultStr = "", reasonStr = "", satisfactionStr = "";
+    if(i < completedCount){
+      status = "完了";
+      const processMinutes = 10 + (i % 4) * 5; // 10/15/20/25分のいずれかで処理完了
+      surveyDateStr = formatDateTime(receivedTs + processMinutes * 60000);
+      const success = (i % 5 !== 0); // 5件に1件は「登録できなかった」
+      resultStr = success ? "できた" : "できなかった";
+      if(!success){
+        reasonStr = REASON_OPTIONS[i % REASON_OPTIONS.length].label;
+      }
+      satisfactionStr = String([5,4,3,5,4][i % 5]);
+    }
+    rows.push([
+      ticketNumber, formatDateTime(receivedTs), branch.label, group.label, heard.label, pay.label, device.label,
+      status, surveyDateStr, resultStr, reasonStr, satisfactionStr,
+    ]);
+  }
   downloadCSVFile("会費ペイ受付_サンプル.csv", header, rows);
 }
 function parseCSV(text){
@@ -2423,40 +2476,61 @@ function importCSVText(text){
     return;
   }
   const dataRows = rows.slice(1); // 先頭行（見出し）を除く
-  let importedCount = 0, skippedCount = 0, errorCount = 0;
+  let importedCount = 0, skippedCount = 0, errorCount = 0, importedSurveyCount = 0;
   dataRows.forEach(row=>{
     if(row.length < 7){ errorCount++; return; }
-    const [ticketStr, dateStr, branchLabel, groupLabel, heardLabel, payLabel, deviceLabel] = row;
+    const [ticketStr, dateStr, branchLabel, groupLabel, heardLabel, payLabel, deviceLabel, statusStr, surveyDateStr, resultStr, reasonStr, satisfactionStr] = row;
     const ticketNumber = parseInt(String(ticketStr).trim(), 10);
     if(!ticketNumber || ticketNumber <= 0){ errorCount++; return; }
-    if(registrations.some(r=>r.ticketNumber===ticketNumber)){ skippedCount++; return; }
     const branch = BRANCHES.find(b=>b.label===branchLabel.trim());
     const group = GROUPS.find(g=>g.label===groupLabel.trim());
     const heard = HEARD_OPTIONS.find(h=>h.label===heardLabel.trim());
     const pay = PAY_OPTIONS.find(p=>p.label===payLabel.trim());
     const device = DEVICE_OPTIONS.find(d=>d.label===deviceLabel.trim());
     if(!branch || !group || !heard || !pay || !device){ errorCount++; return; }
+
     const ts = parseDateTimeStr(dateStr) ?? Date.now();
-    const rec = {
-      ticketNumber,
-      branch: branch.id,
-      group: group.id,
-      heard: heard.key,
-      pay: pay.key,
-      device: device.key,
-      ts,
-    };
-    registrations.push(rec);
-    try{
-      Promise.resolve(addRegistration(rec)).catch(err=>console.error("インポートしたデータのFirebase保存に失敗しました。", err));
-    }catch(e){
-      console.error(e);
+    const alreadyExists = registrations.some(r=>r.ticketNumber===ticketNumber);
+    if(alreadyExists){
+      skippedCount++;
+    } else {
+      const rec = { ticketNumber, branch: branch.id, group: group.id, heard: heard.key, pay: pay.key, device: device.key, ts };
+      registrations.push(rec);
+      try{
+        Promise.resolve(addRegistration(rec)).catch(err=>console.error("インポートした受付データのFirebase保存に失敗しました。", err));
+      }catch(e){ console.error(e); }
+      importedCount++;
     }
-    importedCount++;
+
+    // 状態が「完了」で登録結果が入っている行は、事後アンケートデータも合わせて取り込む
+    if(statusStr && statusStr.trim()==="完了" && resultStr && resultStr.trim() && !completedTicketNumbers.has(ticketNumber)){
+      const success = resultStr.trim() === "できた";
+      let reasonKey = null;
+      if(!success && reasonStr && reasonStr.trim()){
+        const reasonOpt = REASON_OPTIONS.find(r=>r.label===reasonStr.trim());
+        reasonKey = reasonOpt ? reasonOpt.key : null;
+      }
+      const satisfactionNum = satisfactionStr ? parseInt(String(satisfactionStr).trim(), 10) : null;
+      const surveyTs = parseDateTimeStr(surveyDateStr) ?? (ts + 15*60000);
+      const surveyRec = {
+        ticketNumber,
+        success,
+        reason: reasonKey,
+        satisfaction: (satisfactionNum >= 1 && satisfactionNum <= 5) ? satisfactionNum : null,
+        ts: surveyTs,
+      };
+      surveyRecords.push(surveyRec);
+      completedTicketNumbers.add(ticketNumber);
+      try{
+        Promise.resolve(addSurveyRecord(surveyRec)).catch(err=>console.error("インポートした事後アンケートデータのFirebase保存に失敗しました。", err));
+      }catch(e){ console.error(e); }
+      importedSurveyCount++;
+    }
   });
   saveLocal("kaihi_regs", registrations);
+  saveLocal("kaihi_survey_cache", surveyRecords);
   renderBoard();
-  alert(`取り込みが完了しました。\n取り込み成功：${importedCount}件\n重複のためスキップ：${skippedCount}件\n書式エラー：${errorCount}件`);
+  alert(`取り込みが完了しました。\n受付データ：${importedCount}件（重複スキップ：${skippedCount}件）\n事後アンケートデータ：${importedSurveyCount}件\n書式エラー：${errorCount}件`);
 }
 
 /* ===================== Firebase 連携 ===================== */
@@ -2507,6 +2581,7 @@ function tryConnectFirebase(onSuccess){
         .onSnapshot(snap=>{
           surveyRecords = snap.docs.map(d=>d.data());
           completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
+          saveLocal("kaihi_survey_cache", surveyRecords);
           renderBoard();
         }, err=>{
           console.error(err);
@@ -2551,6 +2626,13 @@ function addRegistration(rec){
   }
   return Promise.resolve();
 }
+function addSurveyRecord(rec){
+  // CSVインポートで事後アンケートデータを合わせて取り込むための書き込み専用関数
+  if(usingFirebase && db){
+    return db.collection("kaihi_survey").doc(String(rec.ticketNumber)).set(rec);
+  }
+  return Promise.resolve();
+}
 function resetRegistrations(){
   if(usingFirebase && db){
     const delRegs = db.collection("kaihi_registrations").get().then(snap=>
@@ -2564,6 +2646,7 @@ function resetRegistrations(){
       completedTicketNumbers = new Set();
       surveyRecords = [];
       saveLocal("kaihi_regs", []);
+      saveLocal("kaihi_survey_cache", []);
       saveLocal("kaihi_local_ticket_counter", 0);
       renderBoard();
     });
@@ -2572,6 +2655,7 @@ function resetRegistrations(){
     completedTicketNumbers = new Set();
     surveyRecords = [];
     saveLocal("kaihi_regs", []);
+    saveLocal("kaihi_survey_cache", []);
     saveLocal("kaihi_local_ticket_counter", 0);
     renderBoard();
   }
