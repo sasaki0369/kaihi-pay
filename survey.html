@@ -119,6 +119,19 @@
   .result-wait{margin-top:14px;font-size:15px;background:rgba(255,255,255,0.25);border-radius:12px;padding:10px;}
 
   .home-wrap{text-align:center;padding-top:6vh;}
+  .home-summary{
+    margin-top:22px;background:var(--card);border:3px solid var(--border);border-radius:18px;
+    padding:18px 20px;box-shadow:var(--shadow);text-align:left;
+  }
+  .home-summary .hs-row{display:flex;justify-content:space-between;font-size:15px;padding:6px 0;color:var(--brown-light);font-weight:700;}
+  .home-summary .hs-row .v{color:var(--brown);font-weight:800;}
+  .home-summary .hs-wait{
+    display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:10px;
+    padding-bottom:10px;border-bottom:1px dashed var(--border);
+  }
+  .home-summary .hs-wait .num{font-size:40px;font-weight:900;color:var(--blue-dark);}
+  .home-summary .hs-wait .label{font-size:14px;font-weight:800;color:var(--brown-light);}
+  .home-summary .hs-est{margin-top:8px;font-size:14px;color:var(--brown-light);text-align:center;font-weight:700;}
   .home-btn{
     margin-top:26px;width:100%;padding:34px;font-size:28px;font-weight:900;color:#fff;
     background:linear-gradient(135deg,var(--blue),var(--blue-dark));
@@ -151,6 +164,7 @@
       <div class="home-wrap">
         <div class="big-title" style="font-size:30px;margin-top:10px;">事後アンケートに<br>ご協力ください</div>
         <div class="hint" style="font-size:16px;">画面のボタンをタップして回答します</div>
+        <div class="home-summary" id="homeSummary"></div>
         <button class="home-btn" onclick="startFlow()">アンケートを始める</button>
       </div>
     </section>
@@ -247,6 +261,8 @@ const SATISFACTION_OPTIONS = [
 let state = { ticketNumber:null, success:null, reason:null, satisfaction:null };
 let registrations = [];              // 受付済みの整理番号一覧（{ticketNumber, ts, ...}）
 let completedTicketNumbers = new Set(); // 事後アンケート回答済みの整理番号
+let surveyRecords = []; // 事後アンケートの回答データ（待ち時間推定に利用）
+let boothCount = 1; // ブース数（受付アプリと同じ端末であれば設定値を共有）
 let db = null;
 let usingFirebase = false;
 
@@ -271,13 +287,61 @@ function outstandingTickets(){
 function waitingCount(){
   return outstandingTickets().length;
 }
+function computeWaitingCount(){
+  // 受付総数 - 手続き完了 - ブース数（ブースで対応中とみなす人数は待ち人数に含めない）
+  const total = registrations.length;
+  const completed = completedTicketNumbers.size;
+  const inService = boothCount || 0;
+  return Math.max(0, total - completed - inService);
+}
+function computeAverageProcessingMinutes(){
+  const durations = surveyRecords.map(s=>{
+    const reg = registrations.find(r=>r.ticketNumber===s.ticketNumber);
+    if(!reg || typeof s.ts !== "number" || typeof reg.ts !== "number") return null;
+    return (s.ts - reg.ts) / 60000;
+  }).filter(v => v !== null && v >= 0);
+  if(!durations.length) return null;
+  return durations.reduce((a,b)=>a+b, 0) / durations.length;
+}
+function computeEstimatedWaitMinutes(){
+  const waiting = computeWaitingCount();
+  const avgMinutes = computeAverageProcessingMinutes();
+  if(waiting <= 0 || avgMinutes === null || !boothCount || boothCount <= 0) return null;
+  return (waiting / boothCount) * avgMinutes;
+}
+function renderHomeSummary(){
+  const homeSummary = document.getElementById("homeSummary");
+  if(!homeSummary) return;
+  const waiting = computeWaitingCount();
+  const estWait = computeEstimatedWaitMinutes();
+  const avgMinutes = computeAverageProcessingMinutes();
+  let waitLine;
+  if(estWait === null){
+    waitLine = waiting > 0
+      ? "推定待ち時間：データが集まり次第表示されます"
+      : "推定待ち時間：現在お待ちの方はいません";
+  } else {
+    waitLine = `推定待ち時間：約 ${Math.round(estWait)} 分（1人あたり平均 ${avgMinutes.toFixed(1)} 分 ÷ ブース数 ${boothCount}）`;
+  }
+  homeSummary.innerHTML = `
+    <div class="hs-wait"><span class="num">${waiting}</span><span class="label">名 待ち</span></div>
+    <div class="hs-row"><span>受付総数</span><span class="v">${registrations.length} 名</span></div>
+    <div class="hs-row"><span>手続き完了</span><span class="v">${completedTicketNumbers.size} 名</span></div>
+    <div class="hs-row"><span>ブース数</span><span class="v">${boothCount}</span></div>
+    <div class="hs-est">${escapeHtml(waitLine)}</div>
+  `;
+}
 
 registrations = loadLocal("kaihi_regs", []);
+surveyRecords = loadLocal("kaihi_survey_cache", []);
+completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
 
 function init(){
+  boothCount = loadLocal("kaihi_booth_count", 1);
   renderResultGrid();
   renderReasonGrid();
   renderSatisfactionGrid();
+  renderHomeSummary();
   tryConnectFirebase();
 }
 
@@ -287,6 +351,7 @@ function goScreen(name){
   document.getElementById("screen-"+name).classList.add("active");
   if(name==="ticket") renderTicketGrid();
   if(name==="confirm") renderConfirm();
+  if(name==="home") renderHomeSummary();
 }
 function resetFlowUI(){
   state = { ticketNumber:null, success:null, reason:null, satisfaction:null };
@@ -437,6 +502,8 @@ async function submitSurvey(){
   try{
     // 楽観的にローカルへ反映
     completedTicketNumbers.add(rec.ticketNumber);
+    surveyRecords.push(rec);
+    saveLocal("kaihi_survey_cache", surveyRecords);
     showDone(rec);
     await saveSurvey(rec);
   } catch(e){
@@ -460,7 +527,8 @@ function showDone(rec){
     <div class="desc">ご協力ありがとうございました</div>
   `;
   document.getElementById("doneWait").textContent =
-    `現在の手続き待ち人数は ${waitingCount()} 名です。`;
+    `現在の手続き待ち人数は ${computeWaitingCount()} 名です。`;
+  renderHomeSummary();
   goScreen("done");
 }
 
@@ -489,14 +557,18 @@ function tryConnectFirebase(){
         if(document.getElementById("screen-ticket").classList.contains("active")){
           renderTicketGrid();
         }
+        renderHomeSummary();
       }, err=>{ console.error(err); });
     if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
     window._fbSurveyUnsub = db.collection("kaihi_survey")
       .onSnapshot(snap=>{
-        completedTicketNumbers = new Set(snap.docs.map(d=>d.data().ticketNumber));
+        surveyRecords = snap.docs.map(d=>d.data());
+        completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
+        saveLocal("kaihi_survey_cache", surveyRecords);
         if(document.getElementById("screen-ticket").classList.contains("active")){
           renderTicketGrid();
         }
+        renderHomeSummary();
       }, err=>{ console.error(err); });
   }catch(e){
     console.error(e);
