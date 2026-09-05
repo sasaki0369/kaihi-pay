@@ -284,8 +284,48 @@ function computeWaitingCount(){
   const inService = boothCount || 0;
   return Math.max(0, total - completed - inService);
 }
+/* ===================== 未送信データの再送キュー ===================== */
+let pendingSyncs = loadLocal("kaihi_pending_syncs", []); // [{type:'survey', ticketNumber, data, addedAt}]
+function queuePendingSync(type, ticketNumber, data){
+  pendingSyncs = pendingSyncs.filter(p => !(p.type===type && p.ticketNumber===ticketNumber));
+  pendingSyncs.push({ type, ticketNumber, data, addedAt: Date.now() });
+  saveLocal("kaihi_pending_syncs", pendingSyncs);
+  updatePendingBanner();
+}
+function removePendingSync(type, ticketNumber){
+  const before = pendingSyncs.length;
+  pendingSyncs = pendingSyncs.filter(p => !(p.type===type && p.ticketNumber===ticketNumber));
+  if(pendingSyncs.length !== before){
+    saveLocal("kaihi_pending_syncs", pendingSyncs);
+    updatePendingBanner();
+  }
+}
+function flushPendingSyncs(){
+  if(!usingFirebase || !db || !pendingSyncs.length) return;
+  [...pendingSyncs].forEach(p=>{
+    db.collection("kaihi_survey").doc(String(p.ticketNumber)).set(p.data).then(()=>{
+      removePendingSync(p.type, p.ticketNumber);
+    }).catch(err=>{
+      console.error("再送にも失敗しました。次回また再試行します。", p, err);
+    });
+  });
+}
+function updatePendingBanner(){
+  const el = document.getElementById("connText");
+  if(!el) return;
+  if(pendingSyncs.length > 0){
+    el.textContent = `未送信データが${pendingSyncs.length}件あります（自動で再送中）`;
+  } else {
+    updateConnStatus();
+  }
+}
+
 function forceRefreshSurveyData(){
   boothCount = loadLocal("kaihi_booth_count", 1);
+  if(!usingFirebase || !db){
+    // 未接続の場合はまず再接続を試みる（「反応がない」ように見えるのを防ぐ）
+    tryConnectFirebase();
+  }
   if(usingFirebase && db){
     Promise.all([
       db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
@@ -296,6 +336,7 @@ function forceRefreshSurveyData(){
       completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
       saveLocal("kaihi_survey_app_regs_cache", registrations);
       saveLocal("kaihi_survey_cache", surveyRecords);
+      flushPendingSyncs();
       if(document.getElementById("screen-ticket").classList.contains("active")){
         renderTicketGrid();
       }
@@ -304,13 +345,14 @@ function forceRefreshSurveyData(){
       alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
     });
   } else {
-    // オフライン時はこの端末に保存済みのキャッシュから再読み込みする
+    // それでも繋がらない場合は、この端末に保存済みのキャッシュから再読み込みする
     registrations = loadLocal("kaihi_survey_app_regs_cache", []);
     surveyRecords = loadLocal("kaihi_survey_cache", []);
     completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
     if(document.getElementById("screen-ticket").classList.contains("active")){
       renderTicketGrid();
     }
+    alert("サーバーに接続できませんでした。この端末に保存されている情報を表示しています。");
   }
 }
 
@@ -325,6 +367,8 @@ function init(){
   renderSatisfactionGrid();
   renderTicketGrid();
   tryConnectFirebase();
+  updatePendingBanner();
+  setInterval(flushPendingSyncs, 20000);
 }
 
 /* ===================== 画面遷移 ===================== */
@@ -488,10 +532,12 @@ function submitSurvey(){
   // ここで何が起きても（同期エラー・非同期エラーどちらでも）画面上の回答結果には一切影響させない。
   try{
     Promise.resolve(saveSurvey(rec)).catch(err=>{
-      console.error("Firebaseへの保存に失敗しましたが、回答自体は完了しています。", err);
+      console.error("Firebaseへの保存に失敗しました。再送キューに入れておきます。", err);
+      queuePendingSync("survey", rec.ticketNumber, rec);
     });
   }catch(e){
-    console.error("Firebaseへの保存呼び出しで例外が発生しましたが、回答自体は完了しています。", e);
+    console.error("Firebaseへの保存呼び出しで例外が発生しました。再送キューに入れておきます。", e);
+    queuePendingSync("survey", rec.ticketNumber, rec);
   }
   resetFlowUI();
 }
@@ -499,6 +545,8 @@ function saveSurvey(rec){
   if(usingFirebase && db){
     return db.collection("kaihi_survey").doc(String(rec.ticketNumber)).set(rec);
   }
+  // オフライン時は再送キューに入れておき、接続できたときに自動で送信する
+  queuePendingSync("survey", rec.ticketNumber, rec);
   return Promise.resolve();
 }
 function showDone(rec){
@@ -529,6 +577,7 @@ function tryConnectFirebase(){
     db = firebase.firestore();
     usingFirebase = true;
     updateConnStatus();
+    flushPendingSyncs();
     if(window._fbRegUnsub) { window._fbRegUnsub(); window._fbRegUnsub = null; }
     window._fbRegUnsub = db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
       .onSnapshot(snap=>{
@@ -541,7 +590,11 @@ function tryConnectFirebase(){
     if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
     window._fbSurveyUnsub = db.collection("kaihi_survey")
       .onSnapshot(snap=>{
-        surveyRecords = snap.docs.map(d=>d.data());
+        const serverSurveys = snap.docs.map(d=>d.data());
+        const serverIds = new Set(serverSurveys.map(s=>s.ticketNumber));
+        // まだ送信できていないローカルの回答は、サーバー側に反映されるまで一覧から消えないようにする
+        const stillPending = pendingSyncs.filter(p=>p.type==="survey" && !serverIds.has(p.ticketNumber)).map(p=>p.data);
+        surveyRecords = [...serverSurveys, ...stillPending];
         completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
         saveLocal("kaihi_survey_cache", surveyRecords);
         if(document.getElementById("screen-ticket").classList.contains("active")){
