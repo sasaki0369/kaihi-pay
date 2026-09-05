@@ -125,6 +125,19 @@
   .result-wait{margin-top:14px;font-size:15px;background:rgba(255,255,255,0.25);border-radius:12px;padding:10px;}
 
   .home-wrap{text-align:center;padding-top:6vh;}
+  .home-summary{
+    margin-top:22px;background:var(--card);border:3px solid var(--border);border-radius:18px;
+    padding:18px 20px;box-shadow:var(--shadow);text-align:left;
+  }
+  .home-summary .hs-row{display:flex;justify-content:space-between;font-size:15px;padding:6px 0;color:var(--brown-light);font-weight:700;}
+  .home-summary .hs-row .v{color:var(--brown);font-weight:800;}
+  .home-summary .hs-wait{
+    display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:10px;
+    padding-bottom:10px;border-bottom:1px dashed var(--border);
+  }
+  .home-summary .hs-wait .num{font-size:40px;font-weight:900;color:var(--orange-dark);}
+  .home-summary .hs-wait .label{font-size:14px;font-weight:800;color:var(--brown-light);}
+  .home-summary .hs-est{margin-top:8px;font-size:14px;color:var(--brown-light);text-align:center;font-weight:700;}
   .home-btn{
     margin-top:26px;width:100%;padding:34px;font-size:28px;font-weight:900;color:#fff;
     background:linear-gradient(135deg,var(--orange),var(--orange-dark));
@@ -221,6 +234,7 @@
       <div class="home-wrap">
         <div class="big-title" style="font-size:30px;margin-top:10px;">会費ペイ登録<br>相談会へようこそ</div>
         <div class="hint" style="font-size:16px;">画面のボタンをタップして受付を進めます</div>
+        <div class="home-summary" id="homeSummary"></div>
         <button class="home-btn" onclick="startFlow()">受付をはじめる</button>
         <button class="staff-link" onclick="goScreen('board')">スタッフ用：受付状況・列を見る</button>
       </div>
@@ -1863,7 +1877,11 @@ let boothCount = 1; // ブース数（この端末で設定した値）
 let db = null;
 let usingFirebase = false;
 function computeWaitingCount(){
-  return registrations.filter(r => !completedTicketNumbers.has(r.ticketNumber)).length;
+  // 受付総数 - 手続き完了 - ブース数（ブースで対応中とみなす人数は待ち人数に含めない）
+  const total = registrations.length;
+  const completed = completedTicketNumbers.size;
+  const inService = boothCount || 0;
+  return Math.max(0, total - completed - inService);
 }
 function computeAverageProcessingMinutes(){
   const durations = surveyRecords.map(s=>{
@@ -1911,6 +1929,7 @@ function goScreen(name){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById("screen-"+name).classList.add("active");
   if(name==="board") renderBoard();
+  if(name==="home") renderWaitingSummary();
 }
 function resetFlowUI(){
   state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
@@ -2231,8 +2250,9 @@ function showResult(rec, waitingCount){
     <div class="lane">${rec.ticketNumber}</div>
     <div class="desc">番号札をお渡しください</div>
   `;
-  document.getElementById("resultWait").textContent =
-    `現在、あなたを含めて ${waitingCount} 名が手続き待ちです。番号でお呼びしますので、少々お待ちください。`;
+  document.getElementById("resultWait").textContent = waitingCount > 0
+    ? `現在 ${waitingCount} 名が順番待ちをしています。番号でお呼びしますので、少々お待ちください。`
+    : `ただいま比較的空いております。まもなくご案内できる見込みです。`;
   goScreen("done");
 }
 
@@ -2262,27 +2282,44 @@ function forceRefreshBoard(){
     renderBoard();
   }
 }
-function renderBoard(){
+function renderWaitingSummary(){
   const waitingCount = computeWaitingCount();
   const estWait = computeEstimatedWaitMinutes();
   const avgMinutes = computeAverageProcessingMinutes();
-  const summary = document.getElementById("waitingSummary");
-  if(summary){
-    let waitLine;
-    if(estWait === null){
-      waitLine = waitingCount > 0
-        ? "推定待ち時間：データが集まり次第表示されます"
-        : "推定待ち時間：現在お待ちの方はいません";
-    } else {
-      waitLine = `推定待ち時間：約 ${Math.round(estWait)} 分（1人あたり平均 ${avgMinutes.toFixed(1)} 分 ÷ ブース数 ${boothCount}）`;
-    }
-    summary.innerHTML = `
+  let waitLine;
+  if(estWait === null){
+    waitLine = waitingCount > 0
+      ? "推定待ち時間：データが集まり次第表示されます"
+      : "推定待ち時間：現在お待ちの方はいません";
+  } else {
+    waitLine = `推定待ち時間：約 ${Math.round(estWait)} 分（1人あたり平均 ${avgMinutes.toFixed(1)} 分 ÷ ブース数 ${boothCount}）`;
+  }
+
+  // スタッフ用「受付状況」画面の詳細表示
+  const boardSummary = document.getElementById("waitingSummary");
+  if(boardSummary){
+    boardSummary.innerHTML = `
       <div class="label">現在の待ち人数</div>
       <div class="lane">${waitingCount}</div>
       <div class="desc">受付総数 ${registrations.length} 名 / 手続き完了 ${completedTicketNumbers.size} 名 / ブース数 ${boothCount}</div>
       <div class="desc" style="margin-top:6px;">${escapeHtml(waitLine)}</div>
     `;
   }
+
+  // トップ画面の簡易表示
+  const homeSummary = document.getElementById("homeSummary");
+  if(homeSummary){
+    homeSummary.innerHTML = `
+      <div class="hs-wait"><span class="num">${waitingCount}</span><span class="label">名 待ち</span></div>
+      <div class="hs-row"><span>受付総数</span><span class="v">${registrations.length} 名</span></div>
+      <div class="hs-row"><span>手続き完了</span><span class="v">${completedTicketNumbers.size} 名</span></div>
+      <div class="hs-row"><span>ブース数</span><span class="v">${boothCount}</span></div>
+      <div class="hs-est">${escapeHtml(waitLine)}</div>
+    `;
+  }
+}
+function renderBoard(){
+  renderWaitingSummary();
   const boothInput = document.getElementById("boothCountInput");
   if(boothInput && document.activeElement !== boothInput){
     boothInput.value = boothCount;
