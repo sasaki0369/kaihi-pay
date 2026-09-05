@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="会費ペイ事後アンケート">
+<meta name="theme-color" content="#4A90D9">
+<title>会費ペイ登録相談会 事後アンケート</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+<style>
+  :root{
+    --cream:#FFF8EE;
+    --card:#FFFFFF;
+    --blue:#4A90D9;
+    --blue-dark:#3572B0;
+    --brown:#5A3E2B;
+    --brown-light:#8A7060;
+    --green:#4CAF7D;
+    --red:#E85D5D;
+    --border:#F0DFC8;
+    --shadow: 0 4px 14px rgba(90,62,43,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    font-family:"Hiragino Maru Gothic ProN","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--cream);
+    color:var(--brown);
+    -webkit-tap-highlight-color: transparent;
+    user-select:none;
+  }
+  #app{max-width:900px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  header{
+    background:linear-gradient(135deg,var(--blue),var(--blue-dark));
+    color:#fff;
+    padding:22px 20px 20px;
+    text-align:center;
+    box-shadow:var(--shadow);
+  }
+  header h1{margin:0;font-size:24px;font-weight:800;letter-spacing:.02em;}
+  header .sub{margin-top:4px;font-size:13px;opacity:.9;}
+  main{flex:1;padding:20px 16px 40px;display:flex;flex-direction:column;}
+  .screen{display:none;flex-direction:column;flex:1;min-height:0;animation:fadein .18s ease;}
+  .screen.active{display:flex;}
+  @keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  .big-title{font-size:22px;font-weight:800;margin:6px 0 4px;color:var(--brown);flex-shrink:0;}
+  .hint{font-size:14px;color:var(--brown-light);margin-bottom:18px;flex-shrink:0;}
+
+  .btn-grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px;flex:1;min-height:0;}
+  .btn-grid.single{grid-template-columns:1fr;}
+  .opt-btn{
+    background:var(--card);
+    border:3px solid var(--border);
+    border-radius:18px;
+    padding:16px;
+    font-size:26px;
+    font-weight:800;
+    color:var(--brown);
+    text-align:center;
+    box-shadow:var(--shadow);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    line-height:1.35;
+  }
+  .opt-btn.selected{
+    border-color:var(--blue);
+    background:#EAF2FC;
+    color:var(--blue-dark);
+  }
+  .opt-btn:active{transform:scale(0.97);}
+
+  .ticket-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+    flex:1;min-height:0;overflow-y:auto;align-content:start;padding-right:2px;
+  }
+  .ticket-btn{
+    background:var(--card);border:3px solid var(--border);border-radius:16px;
+    padding:18px 8px;font-size:30px;font-weight:900;box-shadow:var(--shadow);
+    color:var(--brown);text-align:center;
+  }
+  .ticket-btn.selected{border-color:var(--blue);background:#EAF2FC;color:var(--blue-dark);}
+  .empty-msg{text-align:center;padding:40px 20px;color:var(--brown-light);font-size:17px;line-height:1.8;}
+
+  .nav-row{display:flex;gap:12px;margin-top:22px;flex-shrink:0;}
+  .nav-btn{
+    flex:1;padding:20px;border:none;border-radius:16px;font-size:21px;font-weight:800;
+    box-shadow:var(--shadow);
+  }
+  .nav-btn.back{background:#fff;color:var(--brown-light);border:3px solid var(--border);}
+  .nav-btn.next{background:var(--blue);color:#fff;}
+  .nav-btn.next:disabled{background:#C9DCF0;color:#fff;}
+  .nav-btn.submit{background:var(--green);color:#fff;}
+
+  .summary-card{
+    background:var(--card);border:3px solid var(--border);border-radius:18px;
+    padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px;
+  }
+  .summary-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border);font-size:16px;}
+  .summary-row:last-child{border-bottom:none;}
+  .summary-row .k{color:var(--brown-light);font-weight:700;}
+  .summary-row .v{font-weight:800;}
+
+  .result-card{
+    background:linear-gradient(135deg,var(--green),#3d9468);
+    color:#fff;border-radius:22px;padding:34px 20px;text-align:center;box-shadow:var(--shadow);
+  }
+  .result-card .label{font-size:16px;opacity:.9;font-weight:700;}
+  .result-card .big{font-size:32px;font-weight:900;margin:10px 0;letter-spacing:.02em;}
+  .result-card .desc{font-size:16px;font-weight:700;}
+  .result-wait{margin-top:14px;font-size:15px;background:rgba(255,255,255,0.25);border-radius:12px;padding:10px;}
+
+  .home-wrap{text-align:center;padding-top:6vh;}
+  .home-btn{
+    margin-top:26px;width:100%;padding:34px;font-size:28px;font-weight:900;color:#fff;
+    background:linear-gradient(135deg,var(--blue),var(--blue-dark));
+    border:none;border-radius:22px;box-shadow:var(--shadow);
+  }
+  .home-btn:active{transform:scale(.98);}
+
+  .status-banner{position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:12px;padding:6px;color:var(--brown-light);background:rgba(255,248,238,0.9);}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+  .dot.on{background:var(--green);}
+  .dot.off{background:var(--red);}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>会費ペイ登録相談会</h1>
+    <div class="sub">事後アンケート</div>
+  </header>
+
+  <main>
+
+    <!-- ホーム -->
+    <section class="screen active" id="screen-home">
+      <div class="home-wrap">
+        <div class="big-title" style="font-size:30px;margin-top:10px;">事後アンケートに<br>ご協力ください</div>
+        <div class="hint" style="font-size:16px;">画面のボタンをタップして回答します</div>
+        <button class="home-btn" onclick="startFlow()">アンケートを始める</button>
+      </div>
+    </section>
+
+    <!-- STEP1: 整理番号 -->
+    <section class="screen" id="screen-ticket">
+      <div class="big-title">整理番号を選んでください</div>
+      <div class="hint">受付済みでまだ手続きが終わっていない番号が表示されます</div>
+      <div id="ticketArea" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div class="ticket-grid" id="ticketGrid"></div>
+      </div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
+        <button class="nav-btn next" id="ticketNext" disabled onclick="goScreen('result')">次へ</button>
+      </div>
+    </section>
+
+    <!-- STEP2: 会費ペイ登録できましたか -->
+    <section class="screen" id="screen-result">
+      <div class="big-title">会費ペイの登録は<br>できましたか？</div>
+      <div class="hint">当てはまる方をタップ</div>
+      <div class="btn-grid single" id="resultGrid"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('ticket')">戻る</button>
+        <button class="nav-btn next" id="resultNext" disabled onclick="afterResultNext()">次へ</button>
+      </div>
+    </section>
+
+    <!-- STEP3: できなかった理由 -->
+    <section class="screen" id="screen-reason">
+      <div class="big-title">できなかった理由を<br>教えてください</div>
+      <div class="hint">当てはまるものをひとつタップ</div>
+      <div class="btn-grid single" id="reasonGrid"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="goScreen('result')">戻る</button>
+        <button class="nav-btn next" id="reasonNext" disabled onclick="goScreen('satisfaction')">次へ</button>
+      </div>
+    </section>
+
+    <!-- STEP4: 満足度 -->
+    <section class="screen" id="screen-satisfaction">
+      <div class="big-title">今日の相談会の<br>満足度を教えてください</div>
+      <div class="hint">当てはまるものをひとつタップ</div>
+      <div class="btn-grid single" id="satisfactionGrid"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="backFromSatisfaction()">戻る</button>
+        <button class="nav-btn next" id="satisfactionNext" disabled onclick="goScreen('confirm')">次へ</button>
+      </div>
+    </section>
+
+    <!-- 確認 -->
+    <section class="screen" id="screen-confirm">
+      <div class="big-title">回答内容の確認</div>
+      <div class="hint">よろしければ「送信する」をタップしてください</div>
+      <div class="summary-card" id="confirmSummary"></div>
+      <div class="nav-row">
+        <button class="nav-btn back" onclick="backFromSatisfaction()">戻る</button>
+        <button class="nav-btn submit" onclick="submitSurvey()">送信する</button>
+      </div>
+    </section>
+
+    <!-- 完了 -->
+    <section class="screen" id="screen-done">
+      <div class="big-title" style="text-align:center;">ご回答ありがとう<br>ございました</div>
+      <div class="result-card" id="doneCard"></div>
+      <div class="result-wait" id="doneWait"></div>
+      <div class="nav-row">
+        <button class="nav-btn next" onclick="finishAndReset()">続けて次の方の回答へ</button>
+      </div>
+    </section>
+
+  </main>
+  <div class="status-banner"><span class="dot" id="connDot"></span><span id="connText">端末内保存モード</span></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ===================== マスタデータ ===================== */
+const REASON_OPTIONS = [
+  {key:"info", label:"登録に必要な情報が足りなかった"},
+  {key:"time", label:"時間が足りなかった"},
+  {key:"other", label:"その他"},
+];
+const SATISFACTION_OPTIONS = [
+  {key:5, label:"5：とても満足"},
+  {key:4, label:"4：やや満足"},
+  {key:3, label:"3：ふつう"},
+  {key:2, label:"2：やや不満"},
+  {key:1, label:"1：とても不満"},
+];
+
+/* ===================== 状態 ===================== */
+let state = { ticketNumber:null, success:null, reason:null, satisfaction:null };
+let registrations = [];              // 受付済みの整理番号一覧（{ticketNumber, ts, ...}）
+let completedTicketNumbers = new Set(); // 事後アンケート回答済みの整理番号
+let db = null;
+let usingFirebase = false;
+
+function loadLocal(key, fallback){
+  try{
+    const v = localStorage.getItem(key);
+    return v ? JSON.parse(v) : fallback;
+  }catch(e){ return fallback; }
+}
+function saveLocal(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function outstandingTickets(){
+  return registrations
+    .map(r=>r.ticketNumber)
+    .filter(n => typeof n === "number" && !completedTicketNumbers.has(n))
+    .sort((a,b)=>a-b);
+}
+function waitingCount(){
+  return outstandingTickets().length;
+}
+
+registrations = loadLocal("kaihi_regs", []);
+
+function init(){
+  renderResultGrid();
+  renderReasonGrid();
+  renderSatisfactionGrid();
+  tryConnectFirebase();
+}
+
+/* ===================== 画面遷移 ===================== */
+function goScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("screen-"+name).classList.add("active");
+  if(name==="ticket") renderTicketGrid();
+  if(name==="confirm") renderConfirm();
+}
+function resetFlowUI(){
+  state = { ticketNumber:null, success:null, reason:null, satisfaction:null };
+  document.querySelectorAll(".opt-btn.selected, .ticket-btn.selected").forEach(el=>el.classList.remove("selected"));
+  ["ticketNext","resultNext","reasonNext","satisfactionNext"].forEach(id=>{
+    const btn = document.getElementById(id);
+    if(btn) btn.disabled = true;
+  });
+}
+function startFlow(){
+  resetFlowUI();
+  goScreen("ticket");
+}
+function finishAndReset(){
+  resetFlowUI();
+  goScreen("home");
+}
+
+/* ===================== STEP1 整理番号 ===================== */
+function renderTicketGrid(){
+  const tickets = outstandingTickets();
+  document.getElementById("ticketNext").disabled = state.ticketNumber ? false : true;
+  if(!tickets.length){
+    document.getElementById("ticketArea").innerHTML = `<div class="empty-msg">現在、回答対象の整理番号はありません。<br>受付が完了すると番号が表示されます。</div>`;
+    return;
+  }
+  // 空メッセージ表示後の再描画に備えて、常にグリッドを作り直す
+  document.getElementById("ticketArea").innerHTML = `<div class="ticket-grid" id="ticketGrid"></div>`;
+  const freshGrid = document.getElementById("ticketGrid");
+  tickets.forEach(num=>{
+    const btn = document.createElement("button");
+    btn.className = "ticket-btn" + (state.ticketNumber===num ? " selected" : "");
+    btn.textContent = num;
+    btn.onclick = ()=>{
+      document.querySelectorAll("#ticketGrid .ticket-btn").forEach(b=>b.classList.remove("selected"));
+      btn.classList.add("selected");
+      state.ticketNumber = num;
+      document.getElementById("ticketNext").disabled = false;
+    };
+    freshGrid.appendChild(btn);
+  });
+}
+
+/* ===================== STEP2 登録できたか ===================== */
+function renderResultGrid(){
+  const wrap = document.getElementById("resultGrid");
+  wrap.innerHTML = "";
+  const options = [
+    {key:true, label:"登録できた"},
+    {key:false, label:"登録できなかった"},
+  ];
+  options.forEach(o=>{
+    const div = document.createElement("div");
+    div.className = "opt-btn";
+    div.innerHTML = `<div>${escapeHtml(o.label)}</div>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#resultGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.success = o.key;
+      document.getElementById("resultNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+function afterResultNext(){
+  if(state.success === false){
+    goScreen("reason");
+  } else {
+    state.reason = null;
+    goScreen("satisfaction");
+  }
+}
+
+/* ===================== STEP3 理由 ===================== */
+function renderReasonGrid(){
+  const wrap = document.getElementById("reasonGrid");
+  wrap.innerHTML = "";
+  REASON_OPTIONS.forEach(o=>{
+    const div = document.createElement("div");
+    div.className = "opt-btn";
+    div.innerHTML = `<div>${escapeHtml(o.label)}</div>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#reasonGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.reason = o.key;
+      document.getElementById("reasonNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+
+/* ===================== STEP4 満足度 ===================== */
+function renderSatisfactionGrid(){
+  const wrap = document.getElementById("satisfactionGrid");
+  wrap.innerHTML = "";
+  SATISFACTION_OPTIONS.forEach(o=>{
+    const div = document.createElement("div");
+    div.className = "opt-btn";
+    div.innerHTML = `<div>${escapeHtml(o.label)}</div>`;
+    div.onclick = ()=>{
+      document.querySelectorAll("#satisfactionGrid .opt-btn").forEach(x=>x.classList.remove("selected"));
+      div.classList.add("selected");
+      state.satisfaction = o.key;
+      document.getElementById("satisfactionNext").disabled = false;
+    };
+    wrap.appendChild(div);
+  });
+}
+function backFromSatisfaction(){
+  if(state.success === false){
+    goScreen("reason");
+  } else {
+    goScreen("result");
+  }
+}
+
+/* ===================== 確認画面 ===================== */
+function renderConfirm(){
+  const reasonLabel = REASON_OPTIONS.find(r=>r.key===state.reason)?.label || "";
+  const satisfactionLabel = SATISFACTION_OPTIONS.find(s=>s.key===state.satisfaction)?.label || "";
+  let html = `
+    <div class="summary-row"><div class="k">整理番号</div><div class="v">${escapeHtml(state.ticketNumber ?? "")}</div></div>
+    <div class="summary-row"><div class="k">会費ペイ登録</div><div class="v">${state.success ? "できた" : "できなかった"}</div></div>
+  `;
+  if(state.success === false){
+    html += `<div class="summary-row"><div class="k">できなかった理由</div><div class="v">${escapeHtml(reasonLabel)}</div></div>`;
+  }
+  html += `<div class="summary-row"><div class="k">満足度</div><div class="v">${escapeHtml(satisfactionLabel)}</div></div>`;
+  document.getElementById("confirmSummary").innerHTML = html;
+}
+
+/* ===================== 送信処理 ===================== */
+async function submitSurvey(){
+  if(!state.ticketNumber || state.success === null || state.satisfaction === null || (state.success === false && !state.reason)){
+    alert("未入力の項目があります。最初からやり直してください。");
+    finishAndReset();
+    return;
+  }
+  const submitBtn = document.querySelector('#screen-confirm .nav-btn.submit');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = "送信処理中…"; }
+  const rec = {
+    ticketNumber: state.ticketNumber,
+    success: state.success,
+    reason: state.success === false ? state.reason : null,
+    satisfaction: state.satisfaction,
+    ts: Date.now(),
+  };
+  try{
+    // 楽観的にローカルへ反映
+    completedTicketNumbers.add(rec.ticketNumber);
+    showDone(rec);
+    await saveSurvey(rec);
+  } catch(e){
+    console.error(e);
+    alert("送信に失敗しました。もう一度お試しください。");
+  } finally {
+    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = "送信する"; }
+  }
+  resetFlowUI();
+}
+function saveSurvey(rec){
+  if(usingFirebase && db){
+    return db.collection("kaihi_survey").doc(String(rec.ticketNumber)).set(rec);
+  }
+  return Promise.resolve();
+}
+function showDone(rec){
+  document.getElementById("doneCard").innerHTML = `
+    <div class="label">整理番号 ${escapeHtml(rec.ticketNumber)} 番</div>
+    <div class="big">回答を受け付けました</div>
+    <div class="desc">ご協力ありがとうございました</div>
+  `;
+  document.getElementById("doneWait").textContent =
+    `現在の手続き待ち人数は ${waitingCount()} 名です。`;
+  goScreen("done");
+}
+
+/* ===================== Firebase 連携 ===================== */
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCMejR5JNZ9YE1-NFnRa1HGVzZXm4DZGl0",
+  authDomain: "ogawa-enquete.firebaseapp.com",
+  databaseURL: "https://ogawa-enquete-default-rtdb.firebaseio.com",
+  projectId: "ogawa-enquete",
+  storageBucket: "ogawa-enquete.firebasestorage.app",
+  messagingSenderId: "849455476783",
+  appId: "1:849455476783:web:bb7293da83f176167e56da"
+};
+function tryConnectFirebase(){
+  const cfg = DEFAULT_FIREBASE_CONFIG;
+  try{
+    window._fbApp = firebase.initializeApp(cfg);
+    db = firebase.firestore();
+    usingFirebase = true;
+    updateConnStatus();
+    if(window._fbRegUnsub) { window._fbRegUnsub(); window._fbRegUnsub = null; }
+    window._fbRegUnsub = db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
+      .onSnapshot(snap=>{
+        registrations = snap.docs.map(d=>d.data());
+        saveLocal("kaihi_regs", registrations);
+        if(document.getElementById("screen-ticket").classList.contains("active")){
+          renderTicketGrid();
+        }
+      }, err=>{ console.error(err); });
+    if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
+    window._fbSurveyUnsub = db.collection("kaihi_survey")
+      .onSnapshot(snap=>{
+        completedTicketNumbers = new Set(snap.docs.map(d=>d.data().ticketNumber));
+        if(document.getElementById("screen-ticket").classList.contains("active")){
+          renderTicketGrid();
+        }
+      }, err=>{ console.error(err); });
+  }catch(e){
+    console.error(e);
+    usingFirebase = false;
+    updateConnStatus();
+  }
+}
+function updateConnStatus(){
+  const dot = document.getElementById("connDot");
+  const text = document.getElementById("connText");
+  if(usingFirebase){
+    dot.className = "dot on";
+    text.textContent = "複数端末で同期中";
+  }else{
+    dot.className = "dot off";
+    text.textContent = "端末内保存モード（未同期）";
+  }
+}
+
+init();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
+  });
+}
+</script>
+</body>
+</html>
