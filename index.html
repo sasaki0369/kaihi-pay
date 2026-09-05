@@ -376,7 +376,7 @@
         <button class="nav-btn next" onclick="exportCSV()">CSVダウンロード</button>
       </div>
       <div class="nav-row">
-        <button class="nav-btn next" style="background:var(--red);" onclick="confirmReset()">受付データを全てリセット</button>
+        <button class="nav-btn next" style="background:var(--red);" onclick="confirmReset()">全データリセット</button>
       </div>
     </section>
 
@@ -2351,7 +2351,7 @@ function updateBoothCount(){
   renderBoard();
 }
 function confirmReset(){
-  if(confirm("受付データをすべて削除します。よろしいですか？")){
+  if(confirm("受付データ・事後アンケートデータをすべて削除します。よろしいですか？")){
     resetRegistrations();
   }
 }
@@ -2384,19 +2384,26 @@ function downloadCSVFile(filename, header, rows){
   setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 function exportCSV(){
-  if(!registrations.length){
-    alert("出力できる受付データがありません。");
+  if(!registrations.length && !surveyRecords.length){
+    alert("出力できるデータがありません。");
     return;
   }
   const header = ["整理番号","受付日時","支部","班","何を見て","支払い方法","登録端末","状態","アンケート回答日時","登録結果","できなかった理由","満足度"];
-  const rows = registrations.slice().sort((a,b)=>a.ts-b.ts).map(r=>{
-    const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
-    const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
-    const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || r.heard || "";
-    const payLabel = PAY_OPTIONS.find(p=>p.key===r.pay)?.label || r.pay || "";
-    const devLabel = DEVICE_OPTIONS.find(d=>d.key===r.device)?.label || r.device || "";
-    // 整理番号で受付データと事後アンケートデータを1行にまとめる
-    const survey = surveyRecords.find(s=>s.ticketNumber===r.ticketNumber);
+  // 受付データと事後アンケートデータの両方に登場する整理番号をすべて対象にする
+  // （受付データが無くても、事後アンケートだけが残っている整理番号も出力する）
+  const ticketNumbers = new Set([
+    ...registrations.map(r=>r.ticketNumber),
+    ...surveyRecords.map(s=>s.ticketNumber),
+  ]);
+  const rows = [...ticketNumbers].sort((a,b)=>a-b).map(ticketNumber=>{
+    const r = registrations.find(x=>x.ticketNumber===ticketNumber);
+    const survey = surveyRecords.find(s=>s.ticketNumber===ticketNumber);
+    const bLabel = r ? (BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "") : "";
+    const gLabel = r ? (GROUPS.find(g=>g.id===r.group)?.label || r.group || "") : "";
+    const heardLabel = r ? (HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || r.heard || "") : "";
+    const payLabel = r ? (PAY_OPTIONS.find(p=>p.key===r.pay)?.label || r.pay || "") : "";
+    const devLabel = r ? (DEVICE_OPTIONS.find(d=>d.key===r.device)?.label || r.device || "") : "";
+    const receivedDate = r ? formatDateTime(r.ts) : "";
     const status = survey ? "完了" : "待ち";
     const surveyDate = survey ? formatDateTime(survey.ts) : "";
     const resultLabel = survey ? (survey.success ? "できた" : "できなかった") : "";
@@ -2404,7 +2411,7 @@ function exportCSV(){
       ? (REASON_OPTIONS.find(x=>x.key===survey.reason)?.label || survey.reason || "")
       : "";
     const satisfactionStr = (survey && survey.satisfaction != null) ? String(survey.satisfaction) : "";
-    return [r.ticketNumber ?? "", formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, status, surveyDate, resultLabel, reasonLabel, satisfactionStr];
+    return [ticketNumber, receivedDate, bLabel, gLabel, heardLabel, payLabel, devLabel, status, surveyDate, resultLabel, reasonLabel, satisfactionStr];
   });
   const now = new Date();
   const pad = (n)=>String(n).padStart(2,"0");
