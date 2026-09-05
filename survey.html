@@ -268,8 +268,9 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function outstandingTickets(){
-  return registrations
-    .map(r=>r.ticketNumber)
+  // 万一ticketNumberの重複データが混入していても、ボタンが二重表示されないようにする
+  const uniqueTicketNumbers = [...new Set(registrations.map(r=>r.ticketNumber))];
+  return uniqueTicketNumbers
     .filter(n => typeof n === "number" && !completedTicketNumbers.has(n))
     .sort((a,b)=>a-b);
 }
@@ -302,6 +303,14 @@ function forceRefreshSurveyData(){
       console.error(err);
       alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
     });
+  } else {
+    // オフライン時はこの端末に保存済みのキャッシュから再読み込みする
+    registrations = loadLocal("kaihi_survey_app_regs_cache", []);
+    surveyRecords = loadLocal("kaihi_survey_cache", []);
+    completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
+    if(document.getElementById("screen-ticket").classList.contains("active")){
+      renderTicketGrid();
+    }
   }
 }
 
