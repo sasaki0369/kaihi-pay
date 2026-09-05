@@ -2693,6 +2693,9 @@ function resetRegistrations(){
       saveLocal("kaihi_survey_cache", []);
       saveLocal("kaihi_local_ticket_counter", 0);
       renderBoard();
+    }).catch(err=>{
+      console.error(err);
+      alert("データの削除に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
     });
   } else {
     registrations = [];
