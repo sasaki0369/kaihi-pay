@@ -2237,8 +2237,19 @@ function getNextTicketNumber(){
   // 万一に備え、例外が起きても必ず数値を返す（登録そのものは失敗させない）
   try{
     const localMax = registrations.reduce((max, r) => Math.max(max, Number(r.ticketNumber) || 0), 0);
-    const savedMax = loadLocal("kaihi_local_ticket_counter", 0);
-    const finalNext = Math.max(localMax + 1, savedMax + 1, 1);
+    let finalNext;
+    if(usingFirebase && db){
+      // オンライン時は他端末とリアルタイム同期されたregistrationsから算出する。
+      // ここでこの端末のローカル保存値(savedMax)も混ぜてしまうと、
+      // 別の端末で「全データリセット」しても、この端末では古い番号から
+      // 続いてしまう不具合につながるため、オンライン時はローカル保存値を使わない。
+      finalNext = localMax + 1;
+    } else {
+      // オフライン時はこの端末だけで連番を維持する必要があるため、
+      // ローカル保存値も考慮する（他端末とは同期されない）。
+      const savedMax = loadLocal("kaihi_local_ticket_counter", 0);
+      finalNext = Math.max(localMax + 1, savedMax + 1, 1);
+    }
     saveLocal("kaihi_local_ticket_counter", finalNext);
     return finalNext;
   }catch(e){
@@ -2330,6 +2341,9 @@ function forceRefreshBoard(){
     completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
     saveLocal("kaihi_regs", registrations);
     saveLocal("kaihi_survey_cache", surveyRecords);
+    if(registrations.length === 0){
+      saveLocal("kaihi_local_ticket_counter", 0);
+    }
     flushPendingSyncs();
     renderBoard();
   }).catch(err=>{
@@ -2680,6 +2694,11 @@ function tryConnectFirebase(onSuccess){
           const stillPending = pendingSyncs.filter(p=>p.type==="registration" && !serverIds.has(p.ticketNumber)).map(p=>p.data);
           registrations = [...serverRegs, ...stillPending];
           saveLocal("kaihi_regs", registrations);
+          if(registrations.length === 0){
+            // 他端末での「全データリセット」がここまで届いた合図。
+            // オフライン時の保険用カウンターも一緒に0に戻しておく。
+            saveLocal("kaihi_local_ticket_counter", 0);
+          }
           renderBoard();
         }, err=>{
           console.error(err);
