@@ -161,18 +161,8 @@
   <main>
 
     <!-- ホーム -->
-    <section class="screen active" id="screen-home">
-      <div class="home-wrap">
-        <div class="big-title" style="font-size:30px;margin-top:10px;">事後アンケートに<br>ご協力ください</div>
-        <div class="hint" style="font-size:16px;">画面のボタンをタップして回答します</div>
-        <div class="home-summary" id="homeSummary"></div>
-        <button class="small-btn" style="margin-top:10px;" onclick="forceRefreshSurveyData()">最新の状態に更新</button>
-        <button class="home-btn" onclick="startFlow()">アンケートを始める</button>
-      </div>
-    </section>
-
     <!-- STEP1: 整理番号 -->
-    <section class="screen" id="screen-ticket">
+    <section class="screen active" id="screen-ticket">
       <div class="big-title">整理番号を選んでください</div>
       <div class="hint">受付済みでまだ手続きが終わっていない番号が表示されます</div>
       <button class="small-btn" style="align-self:flex-start;margin-bottom:12px;" onclick="forceRefreshSurveyData()">最新の状態に更新</button>
@@ -180,7 +170,6 @@
         <div class="ticket-grid" id="ticketGrid"></div>
       </div>
       <div class="nav-row">
-        <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
         <button class="nav-btn next" id="ticketNext" disabled onclick="goScreen('result')">次へ</button>
       </div>
     </section>
@@ -294,43 +283,6 @@ function computeWaitingCount(){
   const inService = boothCount || 0;
   return Math.max(0, total - completed - inService);
 }
-function computeAverageProcessingMinutes(){
-  const durations = surveyRecords.map(s=>{
-    const reg = registrations.find(r=>r.ticketNumber===s.ticketNumber);
-    if(!reg || typeof s.ts !== "number" || typeof reg.ts !== "number") return null;
-    return (s.ts - reg.ts) / 60000;
-  }).filter(v => v !== null && v >= 0);
-  if(!durations.length) return null;
-  return durations.reduce((a,b)=>a+b, 0) / durations.length;
-}
-function computeEstimatedWaitMinutes(){
-  const waiting = computeWaitingCount();
-  const avgMinutes = computeAverageProcessingMinutes();
-  if(waiting <= 0 || avgMinutes === null || !boothCount || boothCount <= 0) return null;
-  return (waiting / boothCount) * avgMinutes;
-}
-function renderHomeSummary(){
-  const homeSummary = document.getElementById("homeSummary");
-  if(!homeSummary) return;
-  const waiting = computeWaitingCount();
-  const estWait = computeEstimatedWaitMinutes();
-  const avgMinutes = computeAverageProcessingMinutes();
-  let waitLine;
-  if(estWait === null){
-    waitLine = waiting > 0
-      ? "推定待ち時間：データが集まり次第表示されます"
-      : "推定待ち時間：現在お待ちの方はいません";
-  } else {
-    waitLine = `推定待ち時間：約 ${Math.round(estWait)} 分（1人あたり平均 ${avgMinutes.toFixed(1)} 分 ÷ ブース数 ${boothCount}）`;
-  }
-  homeSummary.innerHTML = `
-    <div class="hs-wait"><span class="num">${waiting}</span><span class="label">名 待ち</span></div>
-    <div class="hs-row"><span>受付総数</span><span class="v">${registrations.length} 名</span></div>
-    <div class="hs-row"><span>手続き完了</span><span class="v">${completedTicketNumbers.size} 名</span></div>
-    <div class="hs-row"><span>ブース数</span><span class="v">${boothCount}</span></div>
-    <div class="hs-est">${escapeHtml(waitLine)}</div>
-  `;
-}
 function forceRefreshSurveyData(){
   boothCount = loadLocal("kaihi_booth_count", 1);
   if(usingFirebase && db){
@@ -341,22 +293,19 @@ function forceRefreshSurveyData(){
       registrations = regSnap.docs.map(d=>d.data());
       surveyRecords = surveySnap.docs.map(d=>d.data());
       completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
-      saveLocal("kaihi_regs", registrations);
+      saveLocal("kaihi_survey_app_regs_cache", registrations);
       saveLocal("kaihi_survey_cache", surveyRecords);
       if(document.getElementById("screen-ticket").classList.contains("active")){
         renderTicketGrid();
       }
-      renderHomeSummary();
     }).catch(err=>{
       console.error(err);
       alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
     });
-  } else {
-    renderHomeSummary();
   }
 }
 
-registrations = loadLocal("kaihi_regs", []);
+registrations = loadLocal("kaihi_survey_app_regs_cache", []);
 surveyRecords = loadLocal("kaihi_survey_cache", []);
 completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
 
@@ -365,7 +314,7 @@ function init(){
   renderResultGrid();
   renderReasonGrid();
   renderSatisfactionGrid();
-  renderHomeSummary();
+  renderTicketGrid();
   tryConnectFirebase();
 }
 
@@ -375,7 +324,6 @@ function goScreen(name){
   document.getElementById("screen-"+name).classList.add("active");
   if(name==="ticket") renderTicketGrid();
   if(name==="confirm") renderConfirm();
-  if(name==="home") renderHomeSummary();
 }
 function resetFlowUI(){
   state = { ticketNumber:null, success:null, reason:null, satisfaction:null };
@@ -383,13 +331,9 @@ function resetFlowUI(){
   const ticketNext = document.getElementById("ticketNext");
   if(ticketNext) ticketNext.disabled = true;
 }
-function startFlow(){
-  resetFlowUI();
-  goScreen("ticket");
-}
 function finishAndReset(){
   resetFlowUI();
-  goScreen("home");
+  goScreen("ticket");
 }
 
 /* ===================== STEP1 整理番号 ===================== */
@@ -556,7 +500,6 @@ function showDone(rec){
   `;
   document.getElementById("doneWait").textContent =
     `現在の手続き待ち人数は ${computeWaitingCount()} 名です。`;
-  renderHomeSummary();
   goScreen("done");
 }
 
@@ -581,11 +524,10 @@ function tryConnectFirebase(){
     window._fbRegUnsub = db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
       .onSnapshot(snap=>{
         registrations = snap.docs.map(d=>d.data());
-        saveLocal("kaihi_regs", registrations);
+        saveLocal("kaihi_survey_app_regs_cache", registrations);
         if(document.getElementById("screen-ticket").classList.contains("active")){
           renderTicketGrid();
         }
-        renderHomeSummary();
       }, err=>{ console.error(err); });
     if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
     window._fbSurveyUnsub = db.collection("kaihi_survey")
@@ -596,7 +538,6 @@ function tryConnectFirebase(){
         if(document.getElementById("screen-ticket").classList.contains("active")){
           renderTicketGrid();
         }
-        renderHomeSummary();
       }, err=>{ console.error(err); });
   }catch(e){
     console.error(e);
