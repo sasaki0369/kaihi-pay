@@ -363,6 +363,7 @@ const HEARD_OPTIONS = [
   {key:"keijiban", label:"掲示板"},
   {key:"line", label:"公式LINE"},
   {key:"chijin", label:"知人から"},
+  {key:"other", label:"その他"},
 ];
 const PAY_OPTIONS = [
   {key:"bank", label:"銀行口座引き落し"},
@@ -372,6 +373,7 @@ const DEVICE_OPTIONS = [
   {key:"iphone", label:"iPhone"},
   {key:"android", label:"Android"},
   {key:"pc", label:"パソコン"},
+  {key:"unknown", label:"不明・その他"},
 ];
 const LANE_NAMES = {
   "bank_iphone":"A列", "bank_android":"B列", "bank_pc":"C列",
@@ -2139,13 +2141,27 @@ function submitRegistration(){
     finishAndReset();
     return;
   }
+  // 「不明・その他」の場合は、同じ支払い方法の中で現在の待ち人数が一番少ない列に案内する
+  let assignedDevice = state.device;
+  if(state.device === "unknown"){
+    const candidates = DEVICE_OPTIONS.map(d=>d.key).filter(k=>k!=="unknown");
+    let bestDevice = candidates[0];
+    let minCount = Infinity;
+    candidates.forEach(d=>{
+      const key = state.pay + "_" + d;
+      const count = registrations.filter(r=>r.laneKey===key).length;
+      if(count < minCount){ minCount = count; bestDevice = d; }
+    });
+    assignedDevice = bestDevice;
+  }
   const rec = {
     branch: state.branch,
     group: state.group,
     heard: state.heard,
     pay: state.pay,
-    device: state.device,
-    laneKey: state.pay + "_" + state.device,
+    device: state.device,           // 実際に選択された端末（不明・その他を含む）
+    assignedDevice: assignedDevice, // 案内した実際の列に対応する端末
+    laneKey: state.pay + "_" + assignedDevice,
     ts: Date.now(),
   };
   // 通信状況に関わらず、まず結果画面へすぐに切り替える（登録時点の待ち人数で計算）
@@ -2158,7 +2174,7 @@ function submitRegistration(){
 }
 
 function showResult(rec, waitCount){
-  const lane = laneLabel(rec.pay, rec.device);
+  const lane = laneLabel(rec.pay, rec.assignedDevice || rec.device);
   document.getElementById("resultLane").innerHTML = `
     <div class="label">ご案内する列は</div>
     <div class="lane">${lane.name}</div>
@@ -2191,7 +2207,7 @@ function renderBoard(){
   const rows = registrations.slice().sort((a,b)=>b.ts-a.ts).slice(0,50);
   let html = "<tr><th>時刻</th><th>支部/班</th><th>列</th><th>きっかけ</th></tr>";
   rows.forEach(r=>{
-    const lane = laneLabel(r.pay, r.device);
+    const lane = laneLabel(r.pay, r.assignedDevice || r.device);
     const t = new Date(r.ts);
     const tstr = t.getHours().toString().padStart(2,"0")+":"+t.getMinutes().toString().padStart(2,"0");
     const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || "";
@@ -2225,15 +2241,16 @@ function exportCSV(){
     alert("出力できる受付データがありません。");
     return;
   }
-  const header = ["登録日時","支部","班","何を見て","支払い方法","登録端末","列"];
+  const header = ["登録日時","支部","班","何を見て","支払い方法","選択端末","案内端末","列"];
   const rows = registrations.slice().sort((a,b)=>a.ts-b.ts).map(r=>{
     const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
     const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
     const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || r.heard || "";
     const payLabel = PAY_OPTIONS.find(p=>p.key===r.pay)?.label || r.pay || "";
     const devLabel = DEVICE_OPTIONS.find(d=>d.key===r.device)?.label || r.device || "";
-    const lane = laneLabel(r.pay, r.device);
-    return [formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, lane.name];
+    const assignedDevLabel = DEVICE_OPTIONS.find(d=>d.key===(r.assignedDevice||r.device))?.label || r.assignedDevice || r.device || "";
+    const lane = laneLabel(r.pay, r.assignedDevice || r.device);
+    return [formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, assignedDevLabel, lane.name];
   });
   const lines = [header, ...rows].map(row => row.map(csvEscape).join(","));
   // ExcelでもJavaScriptでも文字化けしないようUTF-8 BOM付きで出力
