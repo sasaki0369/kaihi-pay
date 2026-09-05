@@ -127,13 +127,6 @@
   .home-btn:active{transform:scale(.98);}
   .staff-link{margin-top:18px;font-size:16px;color:var(--brown-light);text-decoration:underline;background:none;border:none;padding:10px;}
 
-  .lane-board{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
-  .lane-card{
-    background:var(--card);border:3px solid var(--border);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow);
-  }
-  .lane-card .lname{font-size:14px;font-weight:800;color:var(--brown-light);}
-  .lane-card .lcount{font-size:34px;font-weight:900;color:var(--orange-dark);}
-
   .settings-section{background:var(--card);border:3px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow);}
   .settings-section h3{margin:0 0 10px;font-size:16px;}
   input[type=text], textarea, input[type=password]{
@@ -332,10 +325,9 @@
 
     <!-- スタッフ：受付状況ボード -->
     <section class="screen" id="screen-board">
-      <div class="big-title">受付状況・列のご案内</div>
-      <div class="hint">支払い方法 × 端末の組み合わせで6つの列があります</div>
-      <div class="lane-board" id="laneBoard"></div>
-      <div class="settings-section" style="margin-top:20px;">
+      <div class="big-title">受付状況</div>
+      <div class="result-lane" id="waitingSummary" style="margin-bottom:16px;"></div>
+      <div class="settings-section" style="margin-top:8px;">
         <h3>受付一覧（最新順）</h3>
         <div style="overflow-x:auto;">
         <table class="reglist" id="regTable"></table>
@@ -375,15 +367,6 @@ const DEVICE_OPTIONS = [
   {key:"pc", label:"パソコン"},
   {key:"unknown", label:"不明・その他"},
 ];
-const LANE_NAMES = {
-  "bank_iphone":"A列", "bank_android":"B列", "bank_pc":"C列",
-  "card_iphone":"D列", "card_android":"E列", "card_pc":"F列",
-};
-function laneLabel(pay, device){
-  const payLabel = PAY_OPTIONS.find(p=>p.key===pay)?.label || pay;
-  const devLabel = DEVICE_OPTIONS.find(d=>d.key===device)?.label || device;
-  return {name: LANE_NAMES[pay+"_"+device], desc: payLabel+" × "+devLabel};
-}
 
 /* 支部一覧（小川自治会） */
 const BRANCHES = [
@@ -1844,8 +1827,12 @@ const ADDRESS_MAP = {
 /* ===================== 状態 ===================== */
 let state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
 let registrations = [];
+let completedTicketNumbers = new Set(); // 事後アンケートに回答済みの整理番号
 let db = null;
 let usingFirebase = false;
+function computeWaitingCount(){
+  return registrations.filter(r => !completedTicketNumbers.has(r.ticketNumber)).length;
+}
 
 /* ===================== 初期化 ===================== */
 function loadLocal(key, fallback){
@@ -2134,54 +2121,72 @@ goScreen = function(name){
 };
 
 /* ===================== 登録処理 ===================== */
-function submitRegistration(){
+/* ===================== 整理番号の発行 ===================== */
+async function getNextTicketNumber(){
+  if(usingFirebase && db){
+    const counterRef = db.collection("kaihi_meta").doc("ticketCounter");
+    const result = await db.runTransaction(async (tx)=>{
+      const doc = await tx.get(counterRef);
+      const current = (doc.exists && typeof doc.data().value === "number") ? doc.data().value : 0;
+      const next = current + 1;
+      tx.set(counterRef, { value: next });
+      return next;
+    });
+    return result;
+  } else {
+    // オフライン時はこの端末内だけで連番を管理（他端末とは同期されません）
+    const next = loadLocal("kaihi_local_ticket_counter", 0) + 1;
+    saveLocal("kaihi_local_ticket_counter", next);
+    return next;
+  }
+}
+
+/* ===================== 登録処理 ===================== */
+async function submitRegistration(){
   // 安全チェック：すべての項目が選択されているか確認（万一未選択のまま進んだ場合の保険）
   if(!state.branch || !state.group || !state.heard || !state.pay || !state.device){
     alert("未入力の項目があります。最初からやり直してください。");
     finishAndReset();
     return;
   }
-  // 「不明・その他」の場合は、同じ支払い方法の中で現在の待ち人数が一番少ない列に案内する
-  let assignedDevice = state.device;
-  if(state.device === "unknown"){
-    const candidates = DEVICE_OPTIONS.map(d=>d.key).filter(k=>k!=="unknown");
-    let bestDevice = candidates[0];
-    let minCount = Infinity;
-    candidates.forEach(d=>{
-      const key = state.pay + "_" + d;
-      const count = registrations.filter(r=>r.laneKey===key).length;
-      if(count < minCount){ minCount = count; bestDevice = d; }
-    });
-    assignedDevice = bestDevice;
+  const submitBtn = document.querySelector('#screen-confirm .nav-btn.submit');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = "登録処理中…"; }
+  try{
+    const ticketNumber = await getNextTicketNumber();
+    const rec = {
+      ticketNumber,
+      branch: state.branch,
+      group: state.group,
+      heard: state.heard,
+      pay: state.pay,
+      device: state.device,
+      ts: Date.now(),
+    };
+    // 楽観的にローカルへ反映してから画面を切り替える
+    registrations.push(rec);
+    saveLocal("kaihi_regs", registrations);
+    const waitingCount = computeWaitingCount();
+    showResult(rec, waitingCount);
+    // Firebaseへの保存はバックグラウンドで実行（失敗しても画面遷移は完了済み）
+    addRegistration(rec).catch(err=>{ console.error(err); });
+  } catch(e){
+    console.error(e);
+    alert("登録に失敗しました。もう一度お試しください。");
+  } finally {
+    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = "登録する"; }
   }
-  const rec = {
-    branch: state.branch,
-    group: state.group,
-    heard: state.heard,
-    pay: state.pay,
-    device: state.device,           // 実際に選択された端末（不明・その他を含む）
-    assignedDevice: assignedDevice, // 案内した実際の列に対応する端末
-    laneKey: state.pay + "_" + assignedDevice,
-    ts: Date.now(),
-  };
-  // 通信状況に関わらず、まず結果画面へすぐに切り替える（登録時点の待ち人数で計算）
-  const waitCountBefore = registrations.filter(r=>r.laneKey===rec.laneKey).length;
-  showResult(rec, waitCountBefore);
-  // 保存はバックグラウンドで実行（失敗しても画面遷移は完了済み）
-  addRegistration(rec).catch(err=>{ console.error(err); });
   // 選択状態を即リフレッシュ（次の人の登録で前回の選択が残らないように）
   resetFlowUI();
 }
 
-function showResult(rec, waitCount){
-  const lane = laneLabel(rec.pay, rec.assignedDevice || rec.device);
+function showResult(rec, waitingCount){
   document.getElementById("resultLane").innerHTML = `
-    <div class="label">ご案内する列は</div>
-    <div class="lane">${lane.name}</div>
-    <div class="desc">${escapeHtml(lane.desc)}</div>
+    <div class="label">整理番号</div>
+    <div class="lane">${rec.ticketNumber}</div>
+    <div class="desc">番号札をお渡しください</div>
   `;
   document.getElementById("resultWait").textContent =
-    `現在 ${lane.name} には ${waitCount} 名が登録されています。スタッフの案内に従ってお並びください。`;
+    `現在、あなたを含めて ${waitingCount} 名が手続き待ちです。番号でお呼びしますので、少々お待ちください。`;
   goScreen("done");
 }
 
@@ -2192,28 +2197,26 @@ function finishAndReset(){
 
 /* ===================== 受付状況ボード ===================== */
 function renderBoard(){
-  const board = document.getElementById("laneBoard");
-  board.innerHTML = "";
-  Object.keys(LANE_NAMES).forEach(key=>{
-    const [pay, device] = key.split("_");
-    const lane = laneLabel(pay, device);
-    const count = registrations.filter(r=>r.laneKey===key).length;
-    const div = document.createElement("div");
-    div.className = "lane-card";
-    div.innerHTML = `<div class="lname">${lane.name}<br>${escapeHtml(lane.desc)}</div><div class="lcount">${count}</div>`;
-    board.appendChild(div);
-  });
+  const waitingCount = computeWaitingCount();
+  const summary = document.getElementById("waitingSummary");
+  if(summary){
+    summary.innerHTML = `
+      <div class="label">現在の待ち人数</div>
+      <div class="lane">${waitingCount}</div>
+      <div class="desc">受付総数 ${registrations.length} 名 / 手続き完了 ${completedTicketNumbers.size} 名</div>
+    `;
+  }
   const tbl = document.getElementById("regTable");
   const rows = registrations.slice().sort((a,b)=>b.ts-a.ts).slice(0,50);
-  let html = "<tr><th>時刻</th><th>支部/班</th><th>列</th><th>きっかけ</th></tr>";
+  let html = "<tr><th>番号</th><th>時刻</th><th>支部/班</th><th>きっかけ</th><th>状態</th></tr>";
   rows.forEach(r=>{
-    const lane = laneLabel(r.pay, r.assignedDevice || r.device);
     const t = new Date(r.ts);
     const tstr = t.getHours().toString().padStart(2,"0")+":"+t.getMinutes().toString().padStart(2,"0");
     const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || "";
     const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
     const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
-    html += `<tr><td>${tstr}</td><td>${escapeHtml(bLabel)}/${escapeHtml(gLabel)}</td><td>${lane.name}</td><td>${escapeHtml(heardLabel)}</td></tr>`;
+    const status = completedTicketNumbers.has(r.ticketNumber) ? "完了" : "待ち";
+    html += `<tr><td>${r.ticketNumber ?? ""}</td><td>${tstr}</td><td>${escapeHtml(bLabel)}/${escapeHtml(gLabel)}</td><td>${escapeHtml(heardLabel)}</td><td>${status}</td></tr>`;
   });
   tbl.innerHTML = html;
 }
@@ -2241,16 +2244,15 @@ function exportCSV(){
     alert("出力できる受付データがありません。");
     return;
   }
-  const header = ["登録日時","支部","班","何を見て","支払い方法","選択端末","案内端末","列"];
+  const header = ["整理番号","登録日時","支部","班","何を見て","支払い方法","登録端末","状態"];
   const rows = registrations.slice().sort((a,b)=>a.ts-b.ts).map(r=>{
     const bLabel = BRANCHES.find(b=>b.id===r.branch)?.label || r.branch || "";
     const gLabel = GROUPS.find(g=>g.id===r.group)?.label || r.group || "";
     const heardLabel = HEARD_OPTIONS.find(h=>h.key===r.heard)?.label || r.heard || "";
     const payLabel = PAY_OPTIONS.find(p=>p.key===r.pay)?.label || r.pay || "";
     const devLabel = DEVICE_OPTIONS.find(d=>d.key===r.device)?.label || r.device || "";
-    const assignedDevLabel = DEVICE_OPTIONS.find(d=>d.key===(r.assignedDevice||r.device))?.label || r.assignedDevice || r.device || "";
-    const lane = laneLabel(r.pay, r.assignedDevice || r.device);
-    return [formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, assignedDevLabel, lane.name];
+    const status = completedTicketNumbers.has(r.ticketNumber) ? "完了" : "待ち";
+    return [r.ticketNumber ?? "", formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, status];
   });
   const lines = [header, ...rows].map(row => row.map(csvEscape).join(","));
   // ExcelでもJavaScriptでも文字化けしないようUTF-8 BOM付きで出力
@@ -2311,6 +2313,15 @@ function tryConnectFirebase(onSuccess){
         }, err=>{
           console.error(err);
         });
+      // 事後アンケート回答済みの整理番号のリアルタイム同期（待ち人数の算出に使用）
+      if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
+      window._fbSurveyUnsub = db.collection("kaihi_survey")
+        .onSnapshot(snap=>{
+          completedTicketNumbers = new Set(snap.docs.map(d=>d.data().ticketNumber));
+          renderBoard();
+        }, err=>{
+          console.error(err);
+        });
       if(onSuccess) onSuccess();
     }catch(e){
       console.error(e);
@@ -2322,6 +2333,7 @@ function tryConnectFirebase(onSuccess){
   // 設定が変更された場合は、いったん既存の接続を破棄してから再接続する
   if(window._fbApp){
     if(window._fbUnsub){ window._fbUnsub(); window._fbUnsub = null; }
+    if(window._fbSurveyUnsub){ window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
     window._fbApp.delete().then(()=>{ window._fbApp = null; connect(); }).catch(()=>{ window._fbApp = null; connect(); });
   } else {
     connect();
@@ -2343,36 +2355,33 @@ function updateConnStatus(){
 }
 
 function addRegistration(rec){
-  return new Promise((resolve)=>{
-    if(usingFirebase && db){
-      db.collection("kaihi_registrations").add(rec).then(()=>{
-        resolve();
-      }).catch(err=>{
-        console.error(err);
-        registrations.push(rec);
-        saveLocal("kaihi_regs", registrations);
-        resolve();
-      });
-    } else {
-      registrations.push(rec);
-      saveLocal("kaihi_regs", registrations);
-      resolve();
-    }
-  });
+  // ローカルへの反映は呼び出し側（submitRegistration）で既に行っているため、
+  // ここではFirebaseへの書き込みのみを担当する
+  if(usingFirebase && db){
+    return db.collection("kaihi_registrations").doc(String(rec.ticketNumber)).set(rec);
+  }
+  return Promise.resolve();
 }
 function resetRegistrations(){
   if(usingFirebase && db){
-    db.collection("kaihi_registrations").get().then(snap=>{
-      const batchPromises = snap.docs.map(d=>d.ref.delete());
-      Promise.all(batchPromises).then(()=>{
-        registrations = [];
-        saveLocal("kaihi_regs", []);
-        renderBoard();
-      });
+    const delRegs = db.collection("kaihi_registrations").get().then(snap=>
+      Promise.all(snap.docs.map(d=>d.ref.delete()))
+    );
+    const delSurveys = db.collection("kaihi_survey").get().then(snap=>
+      Promise.all(snap.docs.map(d=>d.ref.delete()))
+    );
+    const delCounter = db.collection("kaihi_meta").doc("ticketCounter").delete().catch(()=>{});
+    Promise.all([delRegs, delSurveys, delCounter]).then(()=>{
+      registrations = [];
+      completedTicketNumbers = new Set();
+      saveLocal("kaihi_regs", []);
+      renderBoard();
     });
   } else {
     registrations = [];
+    completedTicketNumbers = new Set();
     saveLocal("kaihi_regs", []);
+    saveLocal("kaihi_local_ticket_counter", 0);
     renderBoard();
   }
 }
