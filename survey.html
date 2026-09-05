@@ -42,6 +42,12 @@
   }
   header h1{margin:0;font-size:24px;font-weight:800;letter-spacing:.02em;}
   header .sub{margin-top:4px;font-size:13px;opacity:.9;}
+  .tab-bar{display:flex;background:var(--card);box-shadow:var(--shadow);}
+  .tab-link{
+    flex:1;text-align:center;padding:14px 8px;font-size:16px;font-weight:800;
+    color:var(--brown-light);text-decoration:none;border-bottom:4px solid transparent;
+  }
+  .tab-link.active{color:var(--blue-dark);border-bottom-color:var(--blue);}
   main{flex:1;padding:20px 16px 40px;display:flex;flex-direction:column;}
   .screen{display:none;flex-direction:column;flex:1;min-height:0;animation:fadein .18s ease;}
   .screen.active{display:flex;}
@@ -132,6 +138,11 @@
     <h1>会費ペイ登録相談会</h1>
     <div class="sub">事後アンケート</div>
   </header>
+
+  <nav class="tab-bar">
+    <a href="index.html" class="tab-link">受付</a>
+    <a href="survey.html" class="tab-link active">事後アンケート</a>
+  </nav>
 
   <main>
 
