@@ -46,6 +46,12 @@
   }
   header h1{margin:0;font-size:24px;font-weight:800;letter-spacing:.02em;}
   header .sub{margin-top:4px;font-size:13px;opacity:.9;}
+  .tab-bar{display:flex;background:var(--card);box-shadow:var(--shadow);}
+  .tab-link{
+    flex:1;text-align:center;padding:14px 8px;font-size:16px;font-weight:800;
+    color:var(--brown-light);text-decoration:none;border-bottom:4px solid transparent;
+  }
+  .tab-link.active{color:var(--orange-dark);border-bottom-color:var(--orange);}
   main{flex:1;padding:20px 16px 40px;display:flex;flex-direction:column;}
   .screen{display:none;flex-direction:column;flex:1;min-height:0;animation:fadein .18s ease;}
   .screen.active{display:flex;}
@@ -203,6 +209,11 @@
     <div class="sub">タップだけで簡単受付</div>
   </header>
 
+  <nav class="tab-bar">
+    <a href="index.html" class="tab-link active">受付</a>
+    <a href="survey.html" class="tab-link">事後アンケート</a>
+  </nav>
+
   <main>
 
     <!-- ホーム -->
@@ -327,6 +338,14 @@
     <section class="screen" id="screen-board">
       <div class="big-title">受付状況</div>
       <div class="result-lane" id="waitingSummary" style="margin-bottom:16px;"></div>
+
+      <div class="settings-section">
+        <h3>ブース数の設定</h3>
+        <div class="hint" style="margin-bottom:10px;">同時に対応できるブース（窓口）の数を入力すると、おおよその待ち時間が表示されます。</div>
+        <input type="number" id="boothCountInput" min="1" step="1" inputmode="numeric" style="font-size:20px;padding:14px;">
+        <button class="small-btn" onclick="updateBoothCount()">この値を反映する</button>
+      </div>
+
       <div class="settings-section" style="margin-top:8px;">
         <h3>受付一覧（最新順）</h3>
         <div style="overflow-x:auto;">
@@ -1828,10 +1847,27 @@ const ADDRESS_MAP = {
 let state = { branch:null, group:null, heard:null, pay:null, device:null, viaAddress:false };
 let registrations = [];
 let completedTicketNumbers = new Set(); // 事後アンケートに回答済みの整理番号
+let surveyRecords = []; // 事後アンケートの回答データ（待ち時間推定に利用）
+let boothCount = 1; // ブース数（この端末で設定した値）
 let db = null;
 let usingFirebase = false;
 function computeWaitingCount(){
   return registrations.filter(r => !completedTicketNumbers.has(r.ticketNumber)).length;
+}
+function computeAverageProcessingMinutes(){
+  const durations = surveyRecords.map(s=>{
+    const reg = registrations.find(r=>r.ticketNumber===s.ticketNumber);
+    if(!reg || typeof s.ts !== "number" || typeof reg.ts !== "number") return null;
+    return (s.ts - reg.ts) / 60000;
+  }).filter(v => v !== null && v >= 0);
+  if(!durations.length) return null;
+  return durations.reduce((a,b)=>a+b, 0) / durations.length;
+}
+function computeEstimatedWaitMinutes(){
+  const waiting = computeWaitingCount();
+  const avgMinutes = computeAverageProcessingMinutes();
+  if(waiting <= 0 || avgMinutes === null || !boothCount || boothCount <= 0) return null;
+  return (waiting / boothCount) * avgMinutes;
 }
 
 /* ===================== 初期化 ===================== */
@@ -1848,6 +1884,7 @@ function saveLocal(key, val){
 registrations = loadLocal("kaihi_regs", []);
 
 function init(){
+  boothCount = loadLocal("kaihi_booth_count", 1);
   renderBranchList();
   renderHeardGrid();
   renderPayGrid();
@@ -2123,22 +2160,15 @@ goScreen = function(name){
 /* ===================== 登録処理 ===================== */
 /* ===================== 整理番号の発行 ===================== */
 async function getNextTicketNumber(){
-  if(usingFirebase && db){
-    const counterRef = db.collection("kaihi_meta").doc("ticketCounter");
-    const result = await db.runTransaction(async (tx)=>{
-      const doc = await tx.get(counterRef);
-      const current = (doc.exists && typeof doc.data().value === "number") ? doc.data().value : 0;
-      const next = current + 1;
-      tx.set(counterRef, { value: next });
-      return next;
-    });
-    return result;
-  } else {
-    // オフライン時はこの端末内だけで連番を管理（他端末とは同期されません）
-    const next = loadLocal("kaihi_local_ticket_counter", 0) + 1;
-    saveLocal("kaihi_local_ticket_counter", next);
-    return next;
-  }
+  // Firestoreの新しいコレクションへの書き込み権限に依存すると失敗しやすいため、
+  // 既に読み書きできている受付データ（registrations）から連番を算出する
+  const localMax = registrations.reduce((max, r) => Math.max(max, r.ticketNumber || 0), 0);
+  const next = localMax + 1;
+  // オフライン時の保険として、この端末で発行した最大値も記録しておく
+  const savedMax = loadLocal("kaihi_local_ticket_counter", 0);
+  const finalNext = Math.max(next, savedMax + 1);
+  saveLocal("kaihi_local_ticket_counter", finalNext);
+  return finalNext;
 }
 
 /* ===================== 登録処理 ===================== */
@@ -2198,13 +2228,28 @@ function finishAndReset(){
 /* ===================== 受付状況ボード ===================== */
 function renderBoard(){
   const waitingCount = computeWaitingCount();
+  const estWait = computeEstimatedWaitMinutes();
+  const avgMinutes = computeAverageProcessingMinutes();
   const summary = document.getElementById("waitingSummary");
   if(summary){
+    let waitLine;
+    if(estWait === null){
+      waitLine = waitingCount > 0
+        ? "推定待ち時間：データが集まり次第表示されます"
+        : "推定待ち時間：現在お待ちの方はいません";
+    } else {
+      waitLine = `推定待ち時間：約 ${Math.round(estWait)} 分（1人あたり平均 ${avgMinutes.toFixed(1)} 分 ÷ ブース数 ${boothCount}）`;
+    }
     summary.innerHTML = `
       <div class="label">現在の待ち人数</div>
       <div class="lane">${waitingCount}</div>
-      <div class="desc">受付総数 ${registrations.length} 名 / 手続き完了 ${completedTicketNumbers.size} 名</div>
+      <div class="desc">受付総数 ${registrations.length} 名 / 手続き完了 ${completedTicketNumbers.size} 名 / ブース数 ${boothCount}</div>
+      <div class="desc" style="margin-top:6px;">${escapeHtml(waitLine)}</div>
     `;
+  }
+  const boothInput = document.getElementById("boothCountInput");
+  if(boothInput && document.activeElement !== boothInput){
+    boothInput.value = boothCount;
   }
   const tbl = document.getElementById("regTable");
   const rows = registrations.slice().sort((a,b)=>b.ts-a.ts).slice(0,50);
@@ -2219,6 +2264,18 @@ function renderBoard(){
     html += `<tr><td>${r.ticketNumber ?? ""}</td><td>${tstr}</td><td>${escapeHtml(bLabel)}/${escapeHtml(gLabel)}</td><td>${escapeHtml(heardLabel)}</td><td>${status}</td></tr>`;
   });
   tbl.innerHTML = html;
+}
+function updateBoothCount(){
+  const input = document.getElementById("boothCountInput");
+  const v = parseInt(input.value, 10);
+  if(!v || v < 1){
+    alert("1以上の数値を入力してください。");
+    input.value = boothCount;
+    return;
+  }
+  boothCount = v;
+  saveLocal("kaihi_booth_count", boothCount);
+  renderBoard();
 }
 function confirmReset(){
   if(confirm("受付データをすべて削除します。よろしいですか？")){
@@ -2313,11 +2370,12 @@ function tryConnectFirebase(onSuccess){
         }, err=>{
           console.error(err);
         });
-      // 事後アンケート回答済みの整理番号のリアルタイム同期（待ち人数の算出に使用）
+      // 事後アンケート回答済みの整理番号のリアルタイム同期（待ち人数・待ち時間推定に使用）
       if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
       window._fbSurveyUnsub = db.collection("kaihi_survey")
         .onSnapshot(snap=>{
-          completedTicketNumbers = new Set(snap.docs.map(d=>d.data().ticketNumber));
+          surveyRecords = snap.docs.map(d=>d.data());
+          completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
           renderBoard();
         }, err=>{
           console.error(err);
@@ -2370,16 +2428,18 @@ function resetRegistrations(){
     const delSurveys = db.collection("kaihi_survey").get().then(snap=>
       Promise.all(snap.docs.map(d=>d.ref.delete()))
     );
-    const delCounter = db.collection("kaihi_meta").doc("ticketCounter").delete().catch(()=>{});
-    Promise.all([delRegs, delSurveys, delCounter]).then(()=>{
+    Promise.all([delRegs, delSurveys]).then(()=>{
       registrations = [];
       completedTicketNumbers = new Set();
+      surveyRecords = [];
       saveLocal("kaihi_regs", []);
+      saveLocal("kaihi_local_ticket_counter", 0);
       renderBoard();
     });
   } else {
     registrations = [];
     completedTicketNumbers = new Set();
+    surveyRecords = [];
     saveLocal("kaihi_regs", []);
     saveLocal("kaihi_local_ticket_counter", 0);
     renderBoard();
