@@ -1914,14 +1914,61 @@ registrations = loadLocal("kaihi_regs", []);
 surveyRecords = loadLocal("kaihi_survey_cache", []);
 completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
 
+/* ===================== 未送信データの再送キュー =====================
+   Firebaseへの書き込みが失敗した場合に備え、失敗した書き込みを記録しておき、
+   接続が回復したときや定期的な再試行で自動的に送り直す。
+   これがないと、書き込み失敗が誰にも気づかれないまま「その端末だけのデータ」に
+   なってしまい、他の端末やCSV出力に反映されない事故につながる。 */
+let pendingSyncs = loadLocal("kaihi_pending_syncs", []); // [{type:'registration'|'survey', ticketNumber, data, addedAt}]
+function queuePendingSync(type, ticketNumber, data){
+  pendingSyncs = pendingSyncs.filter(p => !(p.type===type && p.ticketNumber===ticketNumber));
+  pendingSyncs.push({ type, ticketNumber, data, addedAt: Date.now() });
+  saveLocal("kaihi_pending_syncs", pendingSyncs);
+  updatePendingBanner();
+}
+function removePendingSync(type, ticketNumber){
+  const before = pendingSyncs.length;
+  pendingSyncs = pendingSyncs.filter(p => !(p.type===type && p.ticketNumber===ticketNumber));
+  if(pendingSyncs.length !== before){
+    saveLocal("kaihi_pending_syncs", pendingSyncs);
+    updatePendingBanner();
+  }
+}
+function flushPendingSyncs(){
+  if(!usingFirebase || !db || !pendingSyncs.length) return;
+  // 現時点のキューのスナップショットに対して再送を試みる
+  [...pendingSyncs].forEach(p=>{
+    const writeFn = p.type === "survey"
+      ? db.collection("kaihi_survey").doc(String(p.ticketNumber)).set(p.data)
+      : db.collection("kaihi_registrations").doc(String(p.ticketNumber)).set(p.data);
+    Promise.resolve(writeFn).then(()=>{
+      removePendingSync(p.type, p.ticketNumber);
+    }).catch(err=>{
+      console.error("再送にも失敗しました。次回また再試行します。", p, err);
+    });
+  });
+}
+function updatePendingBanner(){
+  const el = document.getElementById("connText");
+  if(!el) return;
+  if(pendingSyncs.length > 0){
+    el.textContent = `未送信データが${pendingSyncs.length}件あります（自動で再送中）`;
+  } else {
+    updateConnStatus();
+  }
+}
+
 function init(){
   boothCount = loadLocal("kaihi_booth_count", 1);
   renderBranchList();
   renderHeardGrid();
   renderPayGrid();
   renderDeviceGrid();
-  tryConnectFirebase();
+  tryConnectFirebase(()=>{ flushPendingSyncs(); });
   renderBoard();
+  updatePendingBanner();
+  // 接続が不安定な状況でも取りこぼしを減らすため、定期的に再送を試みる
+  setInterval(flushPendingSyncs, 20000);
 }
 
 /* ===================== 画面遷移 ===================== */
@@ -2235,10 +2282,12 @@ function submitRegistration(){
   // ここで何が起きても（同期エラー・非同期エラーどちらでも）画面上の登録結果には一切影響させない。
   try{
     Promise.resolve(addRegistration(rec)).catch(err=>{
-      console.error("Firebaseへの保存に失敗しましたが、登録自体は完了しています。", err);
+      console.error("Firebaseへの保存に失敗しました。再送キューに入れておきます。", err);
+      queuePendingSync("registration", rec.ticketNumber, rec);
     });
   }catch(e){
-    console.error("Firebaseへの保存呼び出しで例外が発生しましたが、登録自体は完了しています。", e);
+    console.error("Firebaseへの保存呼び出しで例外が発生しました。再送キューに入れておきます。", e);
+    queuePendingSync("registration", rec.ticketNumber, rec);
   }
   // 選択状態を即リフレッシュ（次の人の登録で前回の選択が残らないように）
   resetFlowUI();
@@ -2263,24 +2312,30 @@ function finishAndReset(){
 
 /* ===================== 受付状況ボード ===================== */
 function forceRefreshBoard(){
-  if(usingFirebase && db){
-    Promise.all([
-      db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
-      db.collection("kaihi_survey").get(),
-    ]).then(([regSnap, surveySnap])=>{
-      registrations = regSnap.docs.map(d=>d.data());
-      surveyRecords = surveySnap.docs.map(d=>d.data());
-      completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
-      saveLocal("kaihi_regs", registrations);
-      saveLocal("kaihi_survey_cache", surveyRecords);
-      renderBoard();
-    }).catch(err=>{
-      console.error(err);
-      alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
+  if(!usingFirebase || !db){
+    // 未接続の場合はまず再接続を試みる（「反応がない」ように見えるのを防ぐ）
+    tryConnectFirebase(()=>{
+      flushPendingSyncs();
+      forceRefreshBoard();
     });
-  } else {
     renderBoard();
+    return;
   }
+  Promise.all([
+    db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
+    db.collection("kaihi_survey").get(),
+  ]).then(([regSnap, surveySnap])=>{
+    registrations = regSnap.docs.map(d=>d.data());
+    surveyRecords = surveySnap.docs.map(d=>d.data());
+    completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
+    saveLocal("kaihi_regs", registrations);
+    saveLocal("kaihi_survey_cache", surveyRecords);
+    flushPendingSyncs();
+    renderBoard();
+  }).catch(err=>{
+    console.error(err);
+    alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
+  });
 }
 function renderWaitingSummary(){
   const waitingCount = computeWaitingCount();
@@ -2541,8 +2596,11 @@ function importCSVText(text){
       const rec = { ticketNumber, branch: branch.id, group: group.id, heard: heard.key, pay: pay.key, device: device.key, ts };
       registrations.push(rec);
       try{
-        Promise.resolve(addRegistration(rec)).catch(err=>console.error("インポートした受付データのFirebase保存に失敗しました。", err));
-      }catch(e){ console.error(e); }
+        Promise.resolve(addRegistration(rec)).catch(err=>{
+          console.error("インポートした受付データのFirebase保存に失敗しました。再送キューに入れておきます。", err);
+          queuePendingSync("registration", ticketNumber, rec);
+        });
+      }catch(e){ queuePendingSync("registration", ticketNumber, rec); }
       importedCount++;
     }
 
@@ -2566,8 +2624,11 @@ function importCSVText(text){
       surveyRecords.push(surveyRec);
       completedTicketNumbers.add(ticketNumber);
       try{
-        Promise.resolve(addSurveyRecord(surveyRec)).catch(err=>console.error("インポートした事後アンケートデータのFirebase保存に失敗しました。", err));
-      }catch(e){ console.error(e); }
+        Promise.resolve(addSurveyRecord(surveyRec)).catch(err=>{
+          console.error("インポートした事後アンケートデータのFirebase保存に失敗しました。再送キューに入れておきます。", err);
+          queuePendingSync("survey", ticketNumber, surveyRec);
+        });
+      }catch(e){ queuePendingSync("survey", ticketNumber, surveyRec); }
       importedSurveyCount++;
     }
   });
@@ -2613,7 +2674,11 @@ function tryConnectFirebase(onSuccess){
       if(window._fbUnsub) { window._fbUnsub(); window._fbUnsub = null; }
       window._fbUnsub = db.collection("kaihi_registrations").orderBy("ts","desc").limit(500)
         .onSnapshot(snap=>{
-          registrations = snap.docs.map(d=>d.data());
+          const serverRegs = snap.docs.map(d=>d.data());
+          const serverIds = new Set(serverRegs.map(r=>r.ticketNumber));
+          // まだ送信できていないローカルの受付データは、サーバー側に反映されるまで表示から消えないようにする
+          const stillPending = pendingSyncs.filter(p=>p.type==="registration" && !serverIds.has(p.ticketNumber)).map(p=>p.data);
+          registrations = [...serverRegs, ...stillPending];
           saveLocal("kaihi_regs", registrations);
           renderBoard();
         }, err=>{
@@ -2623,7 +2688,10 @@ function tryConnectFirebase(onSuccess){
       if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
       window._fbSurveyUnsub = db.collection("kaihi_survey")
         .onSnapshot(snap=>{
-          surveyRecords = snap.docs.map(d=>d.data());
+          const serverSurveys = snap.docs.map(d=>d.data());
+          const serverIds = new Set(serverSurveys.map(s=>s.ticketNumber));
+          const stillPending = pendingSyncs.filter(p=>p.type==="survey" && !serverIds.has(p.ticketNumber)).map(p=>p.data);
+          surveyRecords = [...serverSurveys, ...stillPending];
           completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
           saveLocal("kaihi_survey_cache", surveyRecords);
           renderBoard();
@@ -2668,6 +2736,8 @@ function addRegistration(rec){
   if(usingFirebase && db){
     return db.collection("kaihi_registrations").doc(String(rec.ticketNumber)).set(rec);
   }
+  // オフライン時は再送キューに入れておき、接続できたときに自動で送信する
+  queuePendingSync("registration", rec.ticketNumber, rec);
   return Promise.resolve();
 }
 function addSurveyRecord(rec){
@@ -2675,6 +2745,7 @@ function addSurveyRecord(rec){
   if(usingFirebase && db){
     return db.collection("kaihi_survey").doc(String(rec.ticketNumber)).set(rec);
   }
+  queuePendingSync("survey", rec.ticketNumber, rec);
   return Promise.resolve();
 }
 function resetRegistrations(){
