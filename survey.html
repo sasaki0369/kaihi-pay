@@ -140,6 +140,7 @@
   .home-btn:active{transform:scale(.98);}
 
   .status-banner{position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:12px;padding:6px;color:var(--brown-light);background:rgba(255,248,238,0.9);}
+  .small-btn{padding:10px 16px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-weight:700;font-size:14px;}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
   .dot.on{background:var(--green);}
   .dot.off{background:var(--red);}
@@ -165,6 +166,7 @@
         <div class="big-title" style="font-size:30px;margin-top:10px;">事後アンケートに<br>ご協力ください</div>
         <div class="hint" style="font-size:16px;">画面のボタンをタップして回答します</div>
         <div class="home-summary" id="homeSummary"></div>
+        <button class="small-btn" style="margin-top:10px;" onclick="forceRefreshSurveyData()">最新の状態に更新</button>
         <button class="home-btn" onclick="startFlow()">アンケートを始める</button>
       </div>
     </section>
@@ -173,6 +175,7 @@
     <section class="screen" id="screen-ticket">
       <div class="big-title">整理番号を選んでください</div>
       <div class="hint">受付済みでまだ手続きが終わっていない番号が表示されます</div>
+      <button class="small-btn" style="align-self:flex-start;margin-bottom:12px;" onclick="forceRefreshSurveyData()">最新の状態に更新</button>
       <div id="ticketArea" style="flex:1;min-height:0;display:flex;flex-direction:column;">
         <div class="ticket-grid" id="ticketGrid"></div>
       </div>
@@ -328,6 +331,30 @@ function renderHomeSummary(){
     <div class="hs-est">${escapeHtml(waitLine)}</div>
   `;
 }
+function forceRefreshSurveyData(){
+  boothCount = loadLocal("kaihi_booth_count", 1);
+  if(usingFirebase && db){
+    Promise.all([
+      db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
+      db.collection("kaihi_survey").get(),
+    ]).then(([regSnap, surveySnap])=>{
+      registrations = regSnap.docs.map(d=>d.data());
+      surveyRecords = surveySnap.docs.map(d=>d.data());
+      completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
+      saveLocal("kaihi_regs", registrations);
+      saveLocal("kaihi_survey_cache", surveyRecords);
+      if(document.getElementById("screen-ticket").classList.contains("active")){
+        renderTicketGrid();
+      }
+      renderHomeSummary();
+    }).catch(err=>{
+      console.error(err);
+      alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
+    });
+  } else {
+    renderHomeSummary();
+  }
+}
 
 registrations = loadLocal("kaihi_regs", []);
 surveyRecords = loadLocal("kaihi_survey_cache", []);
@@ -479,14 +506,12 @@ function renderConfirm(){
 }
 
 /* ===================== 送信処理 ===================== */
-async function submitSurvey(){
+function submitSurvey(){
   if(!state.ticketNumber || state.success === null || state.satisfaction === null || (state.success === false && !state.reason)){
     alert("未入力の項目があります。最初からやり直してください。");
     finishAndReset();
     return;
   }
-  const submitBtn = document.querySelector('#screen-confirm .nav-btn.submit');
-  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = "送信処理中…"; }
   const rec = {
     ticketNumber: state.ticketNumber,
     success: state.success,
@@ -495,17 +520,25 @@ async function submitSurvey(){
     ts: Date.now(),
   };
   try{
-    // 楽観的にローカルへ反映
+    // 楽観的にローカルへ反映してから、すぐに画面を切り替える
     completedTicketNumbers.add(rec.ticketNumber);
     surveyRecords.push(rec);
     saveLocal("kaihi_survey_cache", surveyRecords);
     showDone(rec);
-    await saveSurvey(rec);
   } catch(e){
+    // ここに到達するのは想定外の不具合が起きた場合のみ（通常は発生しない）
     console.error(e);
     alert("送信に失敗しました。もう一度お試しください。");
-  } finally {
-    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = "送信する"; }
+    return;
+  }
+  // Firebaseへの保存はバックグラウンドで実行する。
+  // ここで何が起きても（同期エラー・非同期エラーどちらでも）画面上の回答結果には一切影響させない。
+  try{
+    Promise.resolve(saveSurvey(rec)).catch(err=>{
+      console.error("Firebaseへの保存に失敗しましたが、回答自体は完了しています。", err);
+    });
+  }catch(e){
+    console.error("Firebaseへの保存呼び出しで例外が発生しましたが、回答自体は完了しています。", e);
   }
   resetFlowUI();
 }
