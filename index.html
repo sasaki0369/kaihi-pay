@@ -352,6 +352,15 @@
         <table class="reglist" id="regTable"></table>
         </div>
       </div>
+
+      <div class="settings-section">
+        <h3>CSVインポート</h3>
+        <div class="hint" style="margin-bottom:10px;">サンプルCSVで書式を確認してから、同じ形式のCSVファイルを取り込めます（整理番号が重複する行は取り込まれません）。</div>
+        <button class="small-btn" onclick="downloadSampleCSV()">サンプルCSVをダウンロード</button>
+        <button class="small-btn gray" onclick="triggerCSVImport()">CSVを取り込む</button>
+        <input type="file" id="csvImportInput" accept=".csv" style="display:none;" onchange="handleCSVImportChange(event)">
+      </div>
+
       <div class="nav-row">
         <button class="nav-btn back" onclick="goScreen('home')">戻る</button>
         <button class="nav-btn next" onclick="exportCSV()">CSVダウンロード</button>
@@ -2159,31 +2168,32 @@ goScreen = function(name){
 
 /* ===================== 登録処理 ===================== */
 /* ===================== 整理番号の発行 ===================== */
-async function getNextTicketNumber(){
-  // Firestoreの新しいコレクションへの書き込み権限に依存すると失敗しやすいため、
-  // 既に読み書きできている受付データ（registrations）から連番を算出する
-  const localMax = registrations.reduce((max, r) => Math.max(max, r.ticketNumber || 0), 0);
-  const next = localMax + 1;
-  // オフライン時の保険として、この端末で発行した最大値も記録しておく
-  const savedMax = loadLocal("kaihi_local_ticket_counter", 0);
-  const finalNext = Math.max(next, savedMax + 1);
-  saveLocal("kaihi_local_ticket_counter", finalNext);
-  return finalNext;
+function getNextTicketNumber(){
+  // 万一に備え、例外が起きても必ず数値を返す（登録そのものは失敗させない）
+  try{
+    const localMax = registrations.reduce((max, r) => Math.max(max, Number(r.ticketNumber) || 0), 0);
+    const savedMax = loadLocal("kaihi_local_ticket_counter", 0);
+    const finalNext = Math.max(localMax + 1, savedMax + 1, 1);
+    saveLocal("kaihi_local_ticket_counter", finalNext);
+    return finalNext;
+  }catch(e){
+    console.error("整理番号の計算に失敗しました。時刻ベースの番号を使用します。", e);
+    return Date.now() % 100000; // 最後の保険（衝突の可能性はごく低い）
+  }
 }
 
 /* ===================== 登録処理 ===================== */
-async function submitRegistration(){
+function submitRegistration(){
   // 安全チェック：すべての項目が選択されているか確認（万一未選択のまま進んだ場合の保険）
   if(!state.branch || !state.group || !state.heard || !state.pay || !state.device){
     alert("未入力の項目があります。最初からやり直してください。");
     finishAndReset();
     return;
   }
-  const submitBtn = document.querySelector('#screen-confirm .nav-btn.submit');
-  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = "登録処理中…"; }
+  let rec;
   try{
-    const ticketNumber = await getNextTicketNumber();
-    const rec = {
+    const ticketNumber = getNextTicketNumber();
+    rec = {
       ticketNumber,
       branch: state.branch,
       group: state.group,
@@ -2197,13 +2207,20 @@ async function submitRegistration(){
     saveLocal("kaihi_regs", registrations);
     const waitingCount = computeWaitingCount();
     showResult(rec, waitingCount);
-    // Firebaseへの保存はバックグラウンドで実行（失敗しても画面遷移は完了済み）
-    addRegistration(rec).catch(err=>{ console.error(err); });
   } catch(e){
+    // ここに到達するのは想定外の不具合が起きた場合のみ（通常は発生しない）
     console.error(e);
     alert("登録に失敗しました。もう一度お試しください。");
-  } finally {
-    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = "登録する"; }
+    return;
+  }
+  // Firebaseへの保存はバックグラウンドで実行する。
+  // ここで何が起きても（同期エラー・非同期エラーどちらでも）画面上の登録結果には一切影響させない。
+  try{
+    Promise.resolve(addRegistration(rec)).catch(err=>{
+      console.error("Firebaseへの保存に失敗しましたが、登録自体は完了しています。", err);
+    });
+  }catch(e){
+    console.error("Firebaseへの保存呼び出しで例外が発生しましたが、登録自体は完了しています。", e);
   }
   // 選択状態を即リフレッシュ（次の人の登録で前回の選択が残らないように）
   resetFlowUI();
@@ -2296,6 +2313,20 @@ function formatDateTime(ts){
   const pad = (n)=>String(n).padStart(2,"0");
   return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+function downloadCSVFile(filename, header, rows){
+  const lines = [header, ...rows].map(row => row.map(csvEscape).join(","));
+  // ExcelでもJavaScriptでも文字化けしないようUTF-8 BOM付きで出力
+  const csvContent = "\uFEFF" + lines.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
 function exportCSV(){
   if(!registrations.length){
     alert("出力できる受付データがありません。");
@@ -2311,21 +2342,121 @@ function exportCSV(){
     const status = completedTicketNumbers.has(r.ticketNumber) ? "完了" : "待ち";
     return [r.ticketNumber ?? "", formatDateTime(r.ts), bLabel, gLabel, heardLabel, payLabel, devLabel, status];
   });
-  const lines = [header, ...rows].map(row => row.map(csvEscape).join(","));
-  // ExcelでもJavaScriptでも文字化けしないようUTF-8 BOM付きで出力
-  const csvContent = "\uFEFF" + lines.join("\r\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
   const now = new Date();
   const pad = (n)=>String(n).padStart(2,"0");
   const fname = `会費ペイ受付_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fname;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  downloadCSVFile(fname, header, rows);
+}
+
+/* ===================== CSVインポート ===================== */
+function downloadSampleCSV(){
+  const header = ["整理番号","登録日時","支部","班","何を見て","支払い方法","登録端末","状態"];
+  const now = Date.now();
+  const rows = [
+    [101, formatDateTime(now - 30*60000), BRANCHES[0].label, GROUPS[0].label, HEARD_OPTIONS[0].label, PAY_OPTIONS[0].label, DEVICE_OPTIONS[0].label, "完了"],
+    [102, formatDateTime(now - 20*60000), BRANCHES[1] ? BRANCHES[1].label : BRANCHES[0].label, GROUPS[1] ? GROUPS[1].label : GROUPS[0].label, HEARD_OPTIONS[1].label, PAY_OPTIONS[1] ? PAY_OPTIONS[1].label : PAY_OPTIONS[0].label, DEVICE_OPTIONS[1].label, "待ち"],
+    [103, formatDateTime(now - 10*60000), BRANCHES[2] ? BRANCHES[2].label : BRANCHES[0].label, GROUPS[0].label, HEARD_OPTIONS[2] ? HEARD_OPTIONS[2].label : HEARD_OPTIONS[0].label, PAY_OPTIONS[0].label, DEVICE_OPTIONS[3] ? DEVICE_OPTIONS[3].label : DEVICE_OPTIONS[0].label, "待ち"],
+  ];
+  downloadCSVFile("会費ペイ受付_サンプル.csv", header, rows);
+}
+function parseCSV(text){
+  // 先頭のBOMを除去
+  text = text.replace(/^\uFEFF/, "");
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  for(let i=0; i<text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === ','){ row.push(field); field = ""; }
+      else if(c === '\r'){ /* 改行はこの後の\nで処理 */ }
+      else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ""; }
+      else { field += c; }
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => !(r.length===1 && r[0].trim() === ""));
+}
+function parseDateTimeStr(str){
+  const m = String(str).trim().match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+  if(!m) return null;
+  const [, y, mo, d, h, mi, s] = m.map(Number);
+  const t = new Date(y, mo-1, d, h, mi, s).getTime();
+  return isNaN(t) ? null : t;
+}
+function triggerCSVImport(){
+  document.getElementById("csvImportInput").click();
+}
+function handleCSVImportChange(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    importCSVText(String(reader.result));
+    event.target.value = ""; // 同じファイルを続けて選び直せるようにする
+  };
+  reader.onerror = ()=>{
+    alert("ファイルの読み込みに失敗しました。");
+  };
+  reader.readAsText(file, "utf-8");
+}
+function importCSVText(text){
+  let rows;
+  try{
+    rows = parseCSV(text);
+  }catch(e){
+    console.error(e);
+    alert("CSVの読み込みに失敗しました。書式をご確認ください。");
+    return;
+  }
+  if(rows.length < 2){
+    alert("取り込めるデータが見つかりませんでした。サンプルCSVと同じ書式かご確認ください。");
+    return;
+  }
+  const dataRows = rows.slice(1); // 先頭行（見出し）を除く
+  let importedCount = 0, skippedCount = 0, errorCount = 0;
+  dataRows.forEach(row=>{
+    if(row.length < 7){ errorCount++; return; }
+    const [ticketStr, dateStr, branchLabel, groupLabel, heardLabel, payLabel, deviceLabel] = row;
+    const ticketNumber = parseInt(String(ticketStr).trim(), 10);
+    if(!ticketNumber || ticketNumber <= 0){ errorCount++; return; }
+    if(registrations.some(r=>r.ticketNumber===ticketNumber)){ skippedCount++; return; }
+    const branch = BRANCHES.find(b=>b.label===branchLabel.trim());
+    const group = GROUPS.find(g=>g.label===groupLabel.trim());
+    const heard = HEARD_OPTIONS.find(h=>h.label===heardLabel.trim());
+    const pay = PAY_OPTIONS.find(p=>p.label===payLabel.trim());
+    const device = DEVICE_OPTIONS.find(d=>d.label===deviceLabel.trim());
+    if(!branch || !group || !heard || !pay || !device){ errorCount++; return; }
+    const ts = parseDateTimeStr(dateStr) ?? Date.now();
+    const rec = {
+      ticketNumber,
+      branch: branch.id,
+      group: group.id,
+      heard: heard.key,
+      pay: pay.key,
+      device: device.key,
+      ts,
+    };
+    registrations.push(rec);
+    try{
+      Promise.resolve(addRegistration(rec)).catch(err=>console.error("インポートしたデータのFirebase保存に失敗しました。", err));
+    }catch(e){
+      console.error(e);
+    }
+    importedCount++;
+  });
+  saveLocal("kaihi_regs", registrations);
+  renderBoard();
+  alert(`取り込みが完了しました。\n取り込み成功：${importedCount}件\n重複のためスキップ：${skippedCount}件\n書式エラー：${errorCount}件`);
 }
 
 /* ===================== Firebase 連携 ===================== */
