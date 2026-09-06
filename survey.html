@@ -601,6 +601,14 @@ function tryConnectFirebase(){
           renderTicketGrid();
         }
       }, err=>{ console.error(err); });
+    if(window._fbBoothUnsub) { window._fbBoothUnsub(); window._fbBoothUnsub = null; }
+    window._fbBoothUnsub = db.collection("kaihi_settings").doc("global")
+      .onSnapshot(doc=>{
+        if(doc.exists && typeof doc.data().boothCount === "number"){
+          boothCount = doc.data().boothCount;
+          saveLocal("kaihi_booth_count", boothCount);
+        }
+      }, err=>{ console.error(err); });
   }catch(e){
     console.error(e);
     usingFirebase = false;
