@@ -367,6 +367,13 @@
         <button class="small-btn" onclick="updateBoothCount()">この値を反映する</button>
       </div>
 
+      <div class="settings-section">
+        <h3>支払い方法 × 登録端末 クロス集計</h3>
+        <div style="overflow-x:auto;">
+        <table class="reglist" id="crossTabTable"></table>
+        </div>
+      </div>
+
       <div class="settings-section" style="margin-top:8px;">
         <h3>受付一覧（最新順）</h3>
         <div style="overflow-x:auto;">
@@ -2436,6 +2443,38 @@ function renderDiagnostics(){
     ${lastSyncError ? `直近のエラー：${escapeHtml(lastSyncError)}` : ""}
   `;
 }
+function renderCrossTab(){
+  const tbl = document.getElementById("crossTabTable");
+  if(!tbl) return;
+  let html = "<tr><th>支払い方法＼登録端末</th>";
+  DEVICE_OPTIONS.forEach(d=>{ html += `<th>${escapeHtml(d.label)}</th>`; });
+  html += "<th>合計</th></tr>";
+
+  const deviceTotals = {};
+  DEVICE_OPTIONS.forEach(d=>{ deviceTotals[d.key] = 0; });
+  let grandTotal = 0;
+
+  PAY_OPTIONS.forEach(p=>{
+    html += `<tr><td>${escapeHtml(p.label)}</td>`;
+    let rowTotal = 0;
+    DEVICE_OPTIONS.forEach(d=>{
+      const count = registrations.filter(r=>r.pay===p.key && r.device===d.key).length;
+      rowTotal += count;
+      deviceTotals[d.key] += count;
+      html += `<td style="text-align:center;">${count}</td>`;
+    });
+    grandTotal += rowTotal;
+    html += `<td style="text-align:center;"><strong>${rowTotal}</strong></td></tr>`;
+  });
+
+  html += `<tr><td><strong>合計</strong></td>`;
+  DEVICE_OPTIONS.forEach(d=>{
+    html += `<td style="text-align:center;"><strong>${deviceTotals[d.key]}</strong></td>`;
+  });
+  html += `<td style="text-align:center;"><strong>${grandTotal}</strong></td></tr>`;
+
+  tbl.innerHTML = html;
+}
 function renderWaitingSummary(){
   const waitingCount = computeWaitingCount();
   const estWait = computeEstimatedWaitMinutes();
@@ -2475,6 +2514,7 @@ function renderWaitingSummary(){
 function renderBoard(){
   renderWaitingSummary();
   renderDiagnostics();
+  renderCrossTab();
   const boothInput = document.getElementById("boothCountInput");
   if(boothInput && document.activeElement !== boothInput){
     boothInput.value = boothCount;
