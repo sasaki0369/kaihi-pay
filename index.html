@@ -350,6 +350,17 @@
       <button class="small-btn" style="margin-bottom:16px;" onclick="forceRefreshBoard()">最新の状態に更新</button>
 
       <div class="settings-section">
+        <h3>接続状況の診断</h3>
+        <div id="diagInfo" style="font-size:14px;line-height:2;color:var(--brown);"></div>
+        <button class="small-btn" onclick="runConnectionTest()">接続テストを実行</button>
+        <div id="diagTestResult" style="margin-top:8px;font-size:14px;font-weight:700;"></div>
+        <div class="hint" style="margin-top:10px;margin-bottom:0;">
+          「接続テストを実行」がタイムアウトや失敗になる場合はネットワークやFirestoreの権限設定の問題、
+          テストは成功するのに他端末とデータが一致しない場合はアプリ側の同期処理の問題である可能性が高いです。
+        </div>
+      </div>
+
+      <div class="settings-section">
         <h3>ブース数の設定</h3>
         <div class="hint" style="margin-bottom:10px;">同時に対応できるブース（窓口）の数を入力すると、おおよその待ち時間が表示されます。</div>
         <input type="number" id="boothCountInput" min="1" step="1" inputmode="numeric" style="font-size:20px;padding:14px;">
@@ -1910,6 +1921,16 @@ function saveLocal(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
 }
 
+/* ===================== 接続診断用の状態 ===================== */
+let lastSyncedAt = null;      // 直近でFirestoreからデータを受け取れた時刻
+let lastSyncError = null;     // 直近の同期エラーの内容（あれば）
+function formatTimeHMS(ts){
+  if(!ts) return "―";
+  const d = new Date(ts);
+  const pad = (n)=>String(n).padStart(2,"0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 registrations = loadLocal("kaihi_regs", []);
 surveyRecords = loadLocal("kaihi_survey_cache", []);
 completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
@@ -2322,6 +2343,13 @@ function finishAndReset(){
 }
 
 /* ===================== 受付状況ボード ===================== */
+function withTimeout(promise, ms, timeoutMessage){
+  let timer;
+  const timeout = new Promise((_, reject)=>{
+    timer = setTimeout(()=>reject(new Error(timeoutMessage || "タイムアウトしました")), ms);
+  });
+  return Promise.race([promise, timeout]).finally(()=>clearTimeout(timer));
+}
 function forceRefreshBoard(){
   if(!usingFirebase || !db){
     // 未接続の場合はまず再接続を試みる（「反応がない」ように見えるのを防ぐ）
@@ -2332,24 +2360,81 @@ function forceRefreshBoard(){
     renderBoard();
     return;
   }
-  Promise.all([
-    db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
-    db.collection("kaihi_survey").get(),
-  ]).then(([regSnap, surveySnap])=>{
+  const btn = document.querySelector('[onclick="forceRefreshBoard()"]');
+  if(btn){ btn.disabled = true; btn.textContent = "更新しています…"; }
+  withTimeout(
+    Promise.all([
+      db.collection("kaihi_registrations").orderBy("ts","desc").limit(500).get(),
+      db.collection("kaihi_survey").get(),
+      db.collection("kaihi_settings").doc("global").get(),
+    ]),
+    10000,
+    "10秒たっても応答がありませんでした（ネットワークの問題の可能性があります）"
+  ).then(([regSnap, surveySnap, settingsDoc])=>{
     registrations = regSnap.docs.map(d=>d.data());
     surveyRecords = surveySnap.docs.map(d=>d.data());
     completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
     saveLocal("kaihi_regs", registrations);
     saveLocal("kaihi_survey_cache", surveyRecords);
+    if(settingsDoc.exists && typeof settingsDoc.data().boothCount === "number"){
+      boothCount = settingsDoc.data().boothCount;
+      saveLocal("kaihi_booth_count", boothCount);
+    }
     if(registrations.length === 0){
       saveLocal("kaihi_local_ticket_counter", 0);
     }
+    lastSyncedAt = Date.now();
+    lastSyncError = null;
     flushPendingSyncs();
     renderBoard();
   }).catch(err=>{
     console.error(err);
-    alert("最新の状態の取得に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
+    lastSyncError = err && err.message ? err.message : String(err);
+    renderBoard();
+    alert("最新の状態を取得できませんでした。\n理由：" + lastSyncError + "\n\nWi-Fiや通信状況をご確認のうえ、もう一度お試しください。");
+  }).finally(()=>{
+    if(btn){ btn.disabled = false; btn.textContent = "最新の状態に更新"; }
   });
+}
+function runConnectionTest(){
+  const resultEl = document.getElementById("diagTestResult");
+  if(resultEl) resultEl.textContent = "診断中…";
+  if(!usingFirebase || !db){
+    if(resultEl) resultEl.textContent = "✗ Firebaseに接続されていません（設定またはネットワークをご確認ください）";
+    return;
+  }
+  const testId = "test_" + Date.now();
+  const start = Date.now();
+  withTimeout(
+    db.collection("kaihi_diagnostics").doc(testId).set({ ts: start })
+      .then(()=> db.collection("kaihi_diagnostics").doc(testId).get())
+      .then(doc=> db.collection("kaihi_diagnostics").doc(testId).delete().then(()=>doc)),
+    10000,
+    "10秒たっても応答がありませんでした"
+  ).then(doc=>{
+    const elapsed = Date.now() - start;
+    if(doc.exists){
+      if(resultEl) resultEl.textContent = `✓ 成功（${elapsed}ミリ秒で書き込み・読み込みできました）`;
+    } else {
+      if(resultEl) resultEl.textContent = "✗ 書き込みはできましたが、読み込みで想定外の結果でした";
+    }
+  }).catch(err=>{
+    console.error(err);
+    if(resultEl) resultEl.textContent = "✗ 失敗：" + (err && err.message ? err.message : String(err));
+  });
+}
+function renderDiagnostics(){
+  const el = document.getElementById("diagInfo");
+  if(!el) return;
+  const connLabel = usingFirebase ? "✓ 接続済み" : "✗ 未接続";
+  el.innerHTML = `
+    接続状態：${connLabel}<br>
+    最終同期：${formatTimeHMS(lastSyncedAt)}<br>
+    この端末が把握している受付データ：${registrations.length} 件<br>
+    この端末が把握している事後アンケート：${surveyRecords.length} 件<br>
+    未送信データ：${pendingSyncs.length} 件<br>
+    ${lastSyncError ? `直近のエラー：${escapeHtml(lastSyncError)}` : ""}
+  `;
 }
 function renderWaitingSummary(){
   const waitingCount = computeWaitingCount();
@@ -2389,6 +2474,7 @@ function renderWaitingSummary(){
 }
 function renderBoard(){
   renderWaitingSummary();
+  renderDiagnostics();
   const boothInput = document.getElementById("boothCountInput");
   if(boothInput && document.activeElement !== boothInput){
     boothInput.value = boothCount;
@@ -2418,6 +2504,12 @@ function updateBoothCount(){
   boothCount = v;
   saveLocal("kaihi_booth_count", boothCount);
   renderBoard();
+  // 他の端末にも同じブース数を反映する
+  if(usingFirebase && db){
+    db.collection("kaihi_settings").doc("global").set({ boothCount: v }).catch(err=>{
+      console.error("ブース数の共有に失敗しました。この端末の設定としては反映されています。", err);
+    });
+  }
 }
 function confirmReset(){
   if(confirm("受付データ・事後アンケートデータをすべて削除します。よろしいですか？")){
@@ -2699,9 +2791,13 @@ function tryConnectFirebase(onSuccess){
             // オフライン時の保険用カウンターも一緒に0に戻しておく。
             saveLocal("kaihi_local_ticket_counter", 0);
           }
+          lastSyncedAt = Date.now();
+          lastSyncError = null;
           renderBoard();
         }, err=>{
           console.error(err);
+          lastSyncError = "受付データの同期エラー: " + (err && err.message ? err.message : String(err));
+          renderBoard();
         });
       // 事後アンケート回答済みの整理番号のリアルタイム同期（待ち人数・待ち時間推定に使用）
       if(window._fbSurveyUnsub) { window._fbSurveyUnsub(); window._fbSurveyUnsub = null; }
@@ -2713,6 +2809,25 @@ function tryConnectFirebase(onSuccess){
           surveyRecords = [...serverSurveys, ...stillPending];
           completedTicketNumbers = new Set(surveyRecords.map(s=>s.ticketNumber));
           saveLocal("kaihi_survey_cache", surveyRecords);
+          lastSyncedAt = Date.now();
+          lastSyncError = null;
+          renderBoard();
+        }, err=>{
+          console.error(err);
+          lastSyncError = "事後アンケートデータの同期エラー: " + (err && err.message ? err.message : String(err));
+          renderBoard();
+        });
+      // ブース数のリアルタイム同期（どの端末で変更しても他の端末に反映される）
+      if(window._fbBoothUnsub) { window._fbBoothUnsub(); window._fbBoothUnsub = null; }
+      window._fbBoothUnsub = db.collection("kaihi_settings").doc("global")
+        .onSnapshot(doc=>{
+          if(doc.exists && typeof doc.data().boothCount === "number"){
+            boothCount = doc.data().boothCount;
+            saveLocal("kaihi_booth_count", boothCount);
+          } else {
+            // まだ誰も設定していない場合は、この端末のローカル設定値で初期化する
+            db.collection("kaihi_settings").doc("global").set({ boothCount }).catch(()=>{});
+          }
           renderBoard();
         }, err=>{
           console.error(err);
